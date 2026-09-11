@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Morris GameCast Backend Test</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;background:#0b0d12;color:#f4f5f7;margin:0;padding:24px}
+.card{max-width:760px;margin:auto;background:#15181f;border:1px solid #343c49;border-radius:18px;padding:22px}
+h1{margin-top:0} .ok{color:#49d17d} .bad{color:#ff6b6b} code{word-break:break-all;color:#ffc72c}
+pre{white-space:pre-wrap;background:#0b0d12;padding:14px;border-radius:12px;overflow:auto}
+</style>
+</head><body><div class="card">
+<h1>Morris GameCast Public Feed Test</h1>
+<p id="status">Testing the live read-only feed…</p>
+<p><strong>Endpoint:</strong><br><code>https://script.google.com/macros/s/AKfycbyepMFMgO4_tq3zqeeXjdVDh34cj7CQwhsYJaEWZQf38gT2bI1vq9jaJCdwOmQO5QWXHg/exec?view=data</code></p>
+<pre id="details"></pre>
+<script>
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbyepMFMgO4_tq3zqeeXjdVDh34cj7CQwhsYJaEWZQf38gT2bI1vq9jaJCdwOmQO5QWXHg/exec";
+const cb = '__gcTest_' + Date.now();
+const status = document.getElementById('status');
+const details = document.getElementById('details');
+window[cb] = function(payload) {
+  if (payload && payload.ok && payload.data) {
+    status.className='ok';
+    status.textContent='PASS — the public live-data endpoint is reachable from this browser.';
+    const d=payload.data;
+    details.textContent=JSON.stringify({
+      generatedAt: payload.generatedAt,
+      home: d.setup && d.setup.HOME_TEAM_NAME,
+      away: d.setup && d.setup.AWAY_TEAM_NAME,
+      homeScore: d.state && d.state.SCORE_HOME,
+      awayScore: d.state && d.state.SCORE_AWAY,
+      quarter: d.state && d.state.QUARTER,
+      clock: d.state && d.state.CLOCK
+    }, null, 2);
+  } else {
+    status.className='bad';
+    status.textContent='FAIL — the endpoint answered, but did not return GameCast data.';
+    details.textContent=JSON.stringify(payload,null,2);
+  }
+};
+const s=document.createElement('script');
+s.src=ENDPOINT+'?view=data&callback='+encodeURIComponent(cb)+'&_='+Date.now();
+s.onerror=function(){
+  status.className='bad';
+  status.textContent='FAIL — this browser could not reach the public data endpoint.';
+  details.textContent='If Chrome works but Safari fails here, the Apps Script deployment is still requiring Google/Workspace access.';
+};
+document.head.appendChild(s);
+</script>
+</div></body></html>

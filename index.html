@@ -1,0 +1,4481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morris Football GameCast</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0b0d12;
+    --panel: #15181f;
+    --panel-2: #1d222b;
+    --panel-3: #252c37;
+    --border: #343c49;
+    --text: #f4f5f7;
+    --muted: #9aa3b2;
+    --muted-2: #70798a;
+    --accent: #ffc72c;
+    --accent-2: #ff8a00;
+    --home-primary: #8B1E24;
+    --home-secondary: #FFC72C;
+    --away-primary: #1F4E79;
+    --away-secondary: #FFFFFF;
+    --poss-primary: #FFC72C;
+    --poss-secondary: #FFC72C;
+    --danger: #ff6b6b;
+    --success: #49d17d;
+    --field-a: #4f9f46;
+    --field-b: #59ad4d;
+    --yard: rgba(255,255,255,0.22);
+    --line: #f6d44a;
+    --shadow: 0 18px 50px rgba(0,0,0,0.28);
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 450px at 50% -150px, rgba(255,199,44,0.12), transparent 70%),
+      var(--bg);
+    color: var(--text);
+    font-family: Inter, Arial, Helvetica, sans-serif;
+    line-height: 1.45;
+  }
+
+  #loading {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    color: var(--accent);
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  #error-banner {
+    display: none;
+    max-width: 1180px;
+    margin: 12px auto 0;
+    padding: 12px 16px;
+    border: 1px solid rgba(255,107,107,.55);
+    background: rgba(255,107,107,.12);
+    color: #ffd3d3;
+    border-radius: 14px;
+    font-size: 14px;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 28px; }
+
+  /* Header */
+  .scoreboard-shell {
+    border-bottom: 1px solid var(--border);
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--home-primary) 34%, transparent) 0%,
+        rgba(20,23,30,.96) 43%,
+        rgba(20,23,30,.96) 57%,
+        color-mix(in srgb, var(--away-primary) 34%, transparent) 100%
+      );
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 90;
+  }
+  .scoreboard {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 18px 16px 16px;
+  }
+  .game-kicker {
+    text-align: center;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: .16em;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+
+  .matchup-context-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: -6px 0 10px;
+    color: rgba(255,255,255,.76);
+    font-size: 12px;
+    line-height: 1.25;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .matchup-context-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 22px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.05);
+  }
+
+  .team-record {
+    margin-top: 4px;
+    color: rgba(255,255,255,.72);
+    font-size: 11px;
+    line-height: 1;
+    font-weight: 950;
+    letter-spacing: .08em;
+  }
+  .team-timeouts {
+    margin-top: 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 14px;
+    color: rgba(255,255,255,.70);
+    font-size: 9px;
+    line-height: 1;
+    font-weight: 1000;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .team-timeouts.away-timeouts {
+    justify-content: flex-end;
+  }
+  .timeout-label {
+    opacity: .76;
+  }
+  .timeout-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .timeout-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.34);
+    background: rgba(255,255,255,.11);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
+  }
+  .timeout-dot.live.home {
+    background: var(--home-secondary);
+    border-color: color-mix(in srgb, var(--home-secondary) 72%, #fff);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--home-secondary) 42%, transparent);
+  }
+  .timeout-dot.live.away {
+    background: var(--away-secondary);
+    border-color: color-mix(in srgb, var(--away-secondary) 72%, #fff);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--away-secondary) 42%, transparent);
+  }
+
+
+  .live-update-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: -3px 0 12px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #ff5a67;
+    box-shadow: 0 0 0 4px rgba(255,90,103,.15);
+    animation: live-pulse 1.65s ease-in-out infinite;
+  }
+  .live-label {
+    color: #ff7b84;
+    font-weight: 1000;
+  }
+  .live-divider {
+    color: rgba(255,255,255,.34);
+  }
+  @keyframes live-pulse {
+    0%, 100% { transform: scale(.92); opacity: .92; }
+    50% { transform: scale(1.12); opacity: 1; }
+  }
+
+  .team-score-card.active .team-meta::after {
+    display: none;
+  }
+
+
+
+  .period-state-banner {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 22px;
+    margin-bottom: 18px;
+    padding: 16px 18px;
+    background:
+      linear-gradient(105deg, color-mix(in srgb, var(--home-primary) 34%, transparent), transparent 44%),
+      linear-gradient(255deg, color-mix(in srgb, var(--away-primary) 34%, transparent), transparent 44%),
+      rgba(255,255,255,.035);
+    box-shadow: var(--shadow);
+  }
+  .period-state-banner::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(110deg, transparent 0 34%, rgba(255,255,255,.12) 48%, transparent 62%);
+    opacity: .7;
+  }
+  .period-state-banner > * {
+    position: relative;
+    z-index: 1;
+  }
+  .period-state-kicker {
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 1000;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .period-state-title {
+    margin-top: 5px;
+    color: #fff;
+    font-size: clamp(24px, 3vw, 38px);
+    font-weight: 1000;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .period-state-sub {
+    margin-top: 7px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .current-drive-inline {
+    margin-top: 16px;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 20px;
+    padding: 14px 15px;
+    background:
+      linear-gradient(110deg, color-mix(in srgb, var(--poss-primary) 22%, transparent), transparent 70%),
+      rgba(255,255,255,.028);
+  }
+  .current-drive-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .current-drive-logo {
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+  .current-drive-copy {
+    min-width: 0;
+  }
+  .current-drive-label {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 1000;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+  .current-drive-title {
+    margin-top: 3px;
+    color: #fff;
+    font-size: 17px;
+    font-weight: 1000;
+    line-height: 1.16;
+  }
+  .current-drive-sub {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+  .current-drive-stats {
+    margin-top: 13px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .current-drive-stat {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 15px;
+    background: rgba(0,0,0,.17);
+    padding: 10px 9px;
+    text-align: center;
+  }
+  .current-drive-stat-label {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 1000;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+  }
+  .current-drive-stat-value {
+    margin-top: 4px;
+    color: #fff;
+    font-size: 19px;
+    font-weight: 1000;
+    line-height: 1.05;
+  }
+  .current-drive-stat-value.drive-start {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .score-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 118px auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+  }
+  .team-score-card {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 74px;
+    padding: 2px 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    box-shadow: none;
+  }
+  .team-score-card::before { display: none; }
+  .team-score-card.active { border-color: transparent; box-shadow: none; }
+  .team-home.active,
+  .team-away.active { border-color: transparent; }
+  .team-home { justify-content: flex-start; }
+  .team-away { justify-content: flex-end; }
+  .team-side { display:flex; align-items:center; gap:12px; min-width:0; }
+  .away-side { justify-content: flex-end; margin-left: 0; order: 2; }
+  .away-meta { text-align: right; }
+  .team-logo-wrap {
+    width: 62px;
+    height: 62px;
+    flex: 0 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow: visible;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .team-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 0;
+    filter: drop-shadow(0 6px 10px rgba(0,0,0,.34));
+  }
+  .team-logo-fallback {
+    width:48px;
+    height:48px;
+    border-radius: 999px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    font-size:18px;
+    font-weight:950;
+    border: 1px solid rgba(255,255,255,.22);
+    box-shadow: 0 8px 18px rgba(0,0,0,.26);
+  }
+  .team-home .team-logo-fallback { background: linear-gradient(135deg, var(--home-primary), var(--home-secondary)); }
+  .team-away .team-logo-fallback { background: linear-gradient(135deg, var(--away-primary), var(--away-secondary)); color:#fff; }
+  .team-meta { min-width: 0; }
+  .team-abbr {
+    display: none;
+  }
+  .team-home .team-abbr { color: var(--home-secondary); }
+  .team-away .team-abbr { color: var(--away-secondary); }
+  .team-name {
+    color: #fff;
+    font-size: 19px;
+    line-height: 1.02;
+    font-weight: 1000;
+    letter-spacing: -.015em;
+    white-space: normal;
+    overflow: visible;
+    max-width: 170px;
+  }
+  .possession-pill { display: none !important; }
+  .team-score {
+    font-size: clamp(36px, 4.8vw, 58px);
+    font-weight: 1000;
+    line-height: 1;
+    color: #fff;
+    min-width: .9ch;
+    text-align: center;
+  }
+  #home-score { justify-self: end; }
+  #away-score { justify-self: start; }
+  .game-center {
+    text-align: center;
+    min-width: 118px;
+  }
+  .period {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 13px;
+    background: var(--accent);
+    color: #141414;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 1000;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .clock {
+    margin-top: 8px;
+    font-size: clamp(28px, 3.3vw, 40px);
+    font-weight: 1000;
+    color: #fff;
+    line-height: 1;
+  }
+  .clock.running { color: #ff6b6b; }
+  .status-line { display: none; }
+
+  /* Tabs */
+  .tabbar-shell {
+    background: rgba(20,23,30,.94);
+    border-bottom: 1px solid var(--border);
+  }
+  .tabbar {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: flex;
+    gap: 6px;
+    padding: 0 16px;
+    overflow-x: auto;
+  }
+  .tab-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: #d3d7df;
+    padding: 17px 16px 15px;
+    font-size: 15px;
+    font-weight: 900;
+    white-space: nowrap;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+  }
+  .tab-btn:hover { color: #fff; }
+  .tab-btn.active {
+    color: #fff;
+    border-bottom-color: var(--accent-2);
+  }
+
+  .tab-panel { display: none; padding-top: 20px; }
+  .tab-panel.active { display: block; }
+
+  /* Generic cards */
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.018));
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .card-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 15px 18px;
+    background: rgba(255,255,255,.025);
+    border-bottom: 1px solid var(--border);
+  }
+  .card-title {
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: 12px;
+    font-weight: 950;
+  }
+  .card-subtitle { color: var(--muted); font-size: 12px; font-weight: 700; }
+  .card-body { padding: 18px; }
+
+  .gamecast-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, .85fr);
+    gap: 18px;
+    align-items: start;
+  }
+
+  /* Field feature */
+  .field-feature .card-body { padding: 18px; }
+  .situation-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-bottom: 1px dashed rgba(255,255,255,.16);
+    padding-bottom: 16px;
+    margin-bottom: 18px;
+  }
+  .situation-stat {
+    padding: 0 16px;
+    text-align: center;
+    border-right: 1px solid rgba(255,255,255,.15);
+  }
+  .situation-stat:first-child { padding-left: 0; }
+  .situation-stat:last-child { border-right: none; padding-right: 0; }
+  .situation-label {
+    color: var(--muted);
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    font-size: 12px;
+  }
+  .situation-value {
+    color: #fff;
+    font-size: clamp(20px, 2.6vw, 28px);
+    font-weight: 950;
+    margin-top: 4px;
+    line-height: 1.1;
+  }
+  .situation-value.redzone { color: #ff5d52; }
+  .field-wrap { padding: 10px 0 12px; }
+  .field-stage {
+    position: relative;
+    padding: 10px 12px 18px;
+    border-radius: 26px;
+    background:
+      radial-gradient(460px 170px at 50% 100%, rgba(255,255,255,.09), transparent 62%),
+      linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08));
+    min-height: clamp(194px, 33vw, 270px);
+  }
+  .field-shadow {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 8px;
+    height: 22px;
+    border-radius: 999px;
+    background: rgba(0,0,0,.42);
+    filter: blur(10px);
+  }
+  .field-camera {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 10px;
+    height: clamp(158px, 29vw, 236px);
+    transform-origin: center bottom;
+    perspective: 1400px;
+    z-index: 2;
+  }
+  .field {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px 18px 14px 14px;
+    overflow: visible;
+    border: 1px solid rgba(255,255,255,.18);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.14)),
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--home-primary) 84%, #0a0f14) 0 8.3333%,
+        #2d8b42 8.3333% 91.6667%,
+        color-mix(in srgb, var(--away-primary) 84%, #0a0f14) 91.6667% 100%);
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,.07),
+      inset 0 -16px 34px rgba(0,0,0,.22),
+      0 18px 28px rgba(0,0,0,.26);
+    transform: rotateX(58deg);
+    transform-origin: center bottom;
+    transform-style: preserve-3d;
+  }
+  .field::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.06), transparent 18%, transparent 82%, rgba(0,0,0,.08)),
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,.07) 0 1px, transparent 1px 100%);
+    background-size: auto, 10px 10px;
+    opacity: .28;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .endzone-label {
+    position: absolute;
+    top: 50%;
+    width: 8.3333%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-50%);
+    z-index: 4;
+    overflow: hidden;
+    color: rgba(255,255,255,.98);
+    font-size: clamp(14px, 1.9vw, 25px);
+    font-weight: 1000;
+    letter-spacing: .05em;
+    line-height: 1;
+    text-transform: uppercase;
+    text-shadow: 0 2px 12px rgba(0,0,0,.78);
+    white-space: nowrap;
+  }
+  .endzone-label::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: .98;
+    z-index: -1;
+  }
+  .endzone-label.left::before {
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--home-primary) 92%, #0d1118),
+        color-mix(in srgb, var(--home-primary) 78%, #08131b));
+    box-shadow: inset -1px 0 0 rgba(255,255,255,.10);
+  }
+  .endzone-label.right::before {
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--away-primary) 92%, #0d1118),
+        color-mix(in srgb, var(--away-primary) 78%, #08131b));
+    box-shadow: inset 1px 0 0 rgba(255,255,255,.10);
+  }
+  .endzone-label::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    z-index: -1;
+  }
+  .endzone-label.left::after {
+    right: 0;
+    background: var(--home-secondary);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--home-secondary) 48%, transparent);
+  }
+  .endzone-label.right::after {
+    left: 0;
+    background: var(--away-secondary);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--away-secondary) 48%, transparent);
+  }
+  .endzone-label span {
+    display: block;
+    transform: rotate(-90deg);
+    transform-origin: center center;
+  }
+  .endzone-label.left { left: 0; }
+  .endzone-label.right { right: 0; }
+  .endzone-label.right span { transform: rotate(90deg); }
+
+  .field-of-play {
+    position: absolute;
+    left: 8.3333%;
+    right: 8.3333%;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.05), transparent 16%, transparent 84%, rgba(0,0,0,.10)),
+      linear-gradient(90deg,
+        #69b862 0 10%,
+        #5aa44f 10% 20%,
+        #69b862 20% 30%,
+        #5aa44f 30% 40%,
+        #69b862 40% 60%,
+        #5aa44f 60% 70%,
+        #69b862 70% 80%,
+        #5aa44f 80% 90%,
+        #69b862 90% 100%);
+  }
+  .field-of-play::before,
+  .field-of-play::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(255,255,255,.92);
+    z-index: 3;
+  }
+  .field-of-play::before { top: 0; }
+  .field-of-play::after { bottom: 0; }
+  .yard-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1.6px;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,.30);
+    z-index: 4;
+  }
+  .yard-line.major { width: 2px; background: rgba(255,255,255,.52); }
+  .yard-line.midfield { width: 2.4px; background: rgba(255,255,255,.88); }
+  .yard-line.goal { width: 3px; background: rgba(255,255,255,.98); }
+  .field-number {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    color: rgba(255,255,255,.97);
+    font-size: clamp(11px, 1.55vw, 16px);
+    font-weight: 950;
+    letter-spacing: .04em;
+    text-shadow: 0 2px 7px rgba(0,0,0,.62);
+    pointer-events: none;
+    line-height: 1;
+  }
+  .field-number.top {
+    top: 30%;
+    transform: translate(-50%, -50%) rotate(180deg);
+    opacity: .78;
+    font-size: clamp(10px, 1.35vw, 14px);
+  }
+  .field-number.bottom {
+    top: 74%;
+    font-size: clamp(12px, 1.6vw, 17px);
+  }
+
+  .field-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 999px;
+    transform: translateX(-50%);
+    z-index: 5;
+  }
+  .field-line.firstdown {
+    background: #ffd400;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.18),
+      0 0 14px rgba(255,212,0,.35),
+      0 0 28px rgba(255,212,0,.18);
+  }
+
+
+  .possession-logo-marker {
+    position: absolute;
+    top: 0%;
+    transform: translateX(-50%) translateY(-94%) rotateX(-58deg) translateZ(20px);
+    transform-origin: center bottom;
+    width: 78px;
+    height: 78px;
+    z-index: 18;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    transition: left 1.05s cubic-bezier(.16,.84,.44,1);
+    pointer-events: none;
+  }
+  .possession-logo-marker::before {
+    display: none;
+  }
+  .possession-logo-marker::after {
+    display: none;
+  }
+  .possession-logo-marker img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 0;
+    display: none;
+    filter: none;
+  }
+  .possession-logo-fallback {
+    width: 56px;
+    height: 56px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--poss-primary), var(--poss-secondary));
+    color: #fff;
+    font-size: 15px;
+    font-weight: 950;
+    letter-spacing: .04em;
+    border: 1px solid rgba(255,255,255,.30);
+    box-shadow: none;
+  }
+
+  .play-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 12;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .drive-trail {
+    stroke: rgba(255,255,255,.95);
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    fill: none;
+    opacity: 0;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,.42));
+  }
+  .drive-trail.visible { opacity: 1; }
+  .play-route {
+    stroke: var(--poss-secondary);
+    stroke-width: 1.85;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    opacity: 0;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,.48));
+  }
+  .play-route.visible { opacity: 1; }
+  .play-route.animate {
+    opacity: 1;
+    animation: draw-route 1.15s ease forwards;
+  }
+  .play-route.settled-drive {
+    opacity: 1;
+    stroke: rgba(255,255,255,.95);
+    stroke-width: 1.75;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,.42));
+    transition:
+      stroke .85s ease,
+      stroke-width .85s ease,
+      filter .85s ease,
+      opacity .85s ease;
+  }
+  .play-start-dot {
+    display: none;
+    opacity: 0;
+  }
+  .play-start-dot.visible,
+  .play-start-dot.animate {
+    opacity: 0;
+  }
+  .play-end-dot,
+  .play-end-x {
+    opacity: 0;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,.45));
+  }
+  .play-end-dot {
+    display: none;
+  }
+  .play-end-dot.visible,
+  .play-end-dot.animate {
+    opacity: 0;
+  }
+  .play-end-x.visible { opacity: 1; }
+  .play-end-x.animate { animation: reveal-x-marker .35s ease .95s forwards; }
+  .play-end-dot {
+    fill: var(--poss-secondary);
+    stroke: rgba(0,0,0,.34);
+    stroke-width: .75;
+  }
+  .play-end-x line {
+    stroke: #ff6b6b;
+    stroke-width: 1.45;
+    stroke-linecap: round;
+  }
+  .play-end-check {
+    opacity: 0;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,.45));
+  }
+  .play-end-check.visible { opacity: 1; }
+  .play-end-check.animate { animation: reveal-check-marker .35s ease .95s forwards; }
+  .play-end-check path {
+    fill: none;
+    stroke: #3fe38a;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  @keyframes reveal-check-marker {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .play-route.pat-kick,
+  .play-route.fg-kick,
+  .play-route.kickoff-kick,
+  .play-route.punt-kick { stroke-width: 1.85; }
+  .play-route.kickoff-kick,
+  .play-route.punt-kick { stroke: rgba(255,255,255,.96); }
+  .play-route.interception-pass {
+    stroke: rgba(255,255,255,.98);
+    stroke-width: 2.35;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,.58));
+  }
+  .play-route.penalty-move {
+    stroke: #ffd43b;
+    stroke-width: 2.45;
+    filter:
+      drop-shadow(0 3px 5px rgba(0,0,0,.52))
+      drop-shadow(0 0 8px rgba(255,212,59,.42));
+  }
+
+  .play-route.interception-pass.animate {
+    opacity: 1;
+    animation: draw-interception-pass-arc 1.18s ease forwards;
+  }
+  @keyframes draw-interception-pass-arc {
+    from { stroke-dashoffset: var(--route-length, 200); opacity: 1; }
+    to { stroke-dashoffset: 0; opacity: 1; }
+  }
+  .kick-return-route.interception-return.animate {
+    opacity: 1;
+    animation: draw-interception-return 1.00s ease forwards;
+  }
+  @keyframes draw-interception-return {
+    from { stroke-dashoffset: var(--return-route-length, 200); opacity: 1; }
+    to { stroke-dashoffset: 0; opacity: 1; }
+  }
+  .play-route.pat-kick,
+  .play-route.fg-kick { stroke: var(--poss-secondary); }
+  .kick-return-route {
+    fill: none;
+    stroke: var(--poss-secondary);
+    stroke-width: 1.85;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,.48));
+  }
+  .kick-return-route.visible { opacity: 1; }
+  .kick-return-route.animate { opacity: 1; animation: draw-return-route 1.05s ease 1.05s forwards; }
+  @keyframes draw-return-route { from { stroke-dashoffset: var(--return-route-length, 200); } to { stroke-dashoffset: 0; } }
+
+
+  .play-route.pat-kick {
+    stroke: var(--poss-secondary);
+    stroke-width: 1.95;
+  }
+  .play-route.kickoff-kick {
+    stroke: rgba(255,255,255,.96);
+    stroke-width: 1.8;
+  }
+  .kickoff-return-route {
+    fill: none;
+    stroke: var(--poss-secondary);
+    stroke-width: 1.85;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,.48));
+  }
+  .kickoff-return-route.visible { opacity: 1; }
+  .kickoff-return-route.animate {
+    opacity: 1;
+    animation: draw-return-route 1.05s ease 1.08s forwards;
+  }
+  @keyframes draw-return-route {
+    from { stroke-dashoffset: var(--return-route-length, 200); }
+    to { stroke-dashoffset: 0; }
+  }
+
+  .field-celebration {
+    --cele-primary: var(--poss-primary);
+    --cele-secondary: var(--poss-secondary);
+    position: absolute;
+    left: 50%;
+    top: 10px;
+    z-index: 35;
+    transform: translate(-50%, -12px) scale(.94);
+    opacity: 0;
+    pointer-events: none;
+    min-width: min(82%, 560px);
+    max-width: calc(100% - 28px);
+    padding: 11px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.22);
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--cele-primary) 72%, rgba(0,0,0,.18)),
+        color-mix(in srgb, var(--cele-secondary) 58%, rgba(0,0,0,.22))
+      );
+    box-shadow:
+      0 18px 42px rgba(0,0,0,.42),
+      inset 0 0 0 1px rgba(255,255,255,.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    overflow: hidden;
+  }
+  .field-celebration::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 0 35%, rgba(255,255,255,.32) 48%, transparent 63% 100%);
+    transform: translateX(-140%);
+    opacity: .8;
+  }
+  .field-celebration.show {
+    animation: celebration-pop 4.7s cubic-bezier(.18,.86,.28,1) forwards;
+  }
+  .field-celebration.touchdown.sticky.show {
+    animation: celebration-touchdown-hold .72s cubic-bezier(.18,.86,.28,1) forwards;
+  }
+  .field-celebration.show::before {
+    animation: celebration-sheen 1.05s ease .18s forwards;
+  }
+  .celebration-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    display: none;
+    flex: 0 0 auto;
+    filter: drop-shadow(0 7px 12px rgba(0,0,0,.36));
+  }
+  .celebration-logo.visible { display: block; }
+  .celebration-copy {
+    min-width: 0;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .celebration-word {
+    color: #fff;
+    font-size: clamp(20px, 3vw, 34px);
+    font-weight: 1000;
+    line-height: 1;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    text-shadow: 0 3px 14px rgba(0,0,0,.52);
+  }
+  .field-celebration.touchdown .celebration-word {
+    animation: celebration-color-flash .45s steps(1, end) 7;
+  }
+  .field-celebration.interception {
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--cele-primary) 78%, rgba(0,0,0,.22)),
+        color-mix(in srgb, var(--cele-secondary) 62%, rgba(0,0,0,.22))
+      );
+  }
+  .field-celebration.interception .celebration-word {
+    letter-spacing: .10em;
+    animation: interception-pop-word .62s cubic-bezier(.18,.86,.28,1) both;
+  }
+  @keyframes interception-pop-word {
+    0% { transform: scale(.82); opacity: .15; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .field-celebration.timeout {
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--cele-primary) 72%, rgba(0,0,0,.22)),
+        color-mix(in srgb, var(--cele-secondary) 58%, rgba(0,0,0,.22))
+      );
+  }
+  .field-celebration.timeout .celebration-word {
+    letter-spacing: .10em;
+  }
+  .field-celebration.penalty {
+    background:
+      linear-gradient(90deg,
+        rgba(255,204,0,.84),
+        rgba(234,179,8,.68)
+      );
+    color: #17120a;
+  }
+  .field-celebration.penalty .celebration-word,
+  .field-celebration.penalty .celebration-sub {
+    color: #17120a;
+    text-shadow: none;
+  }
+
+  .celebration-sub {
+    margin-top: 4px;
+    color: rgba(255,255,255,.92);
+    font-size: 11px;
+    font-weight: 950;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .celebration-kick {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 4px);
+    width: min(56%, 260px);
+    height: 56px;
+    transform: translateX(-50%);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 34;
+  }
+  .celebration-kick.show {
+    opacity: 1;
+  }
+  .celebration-kick .kick-arc {
+    position: absolute;
+    inset: 0;
+    border-top: 4px solid var(--cele-secondary);
+    border-radius: 50% 50% 0 0;
+    transform: scaleX(.82);
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,.42));
+    opacity: 0;
+  }
+  .celebration-kick .kick-dot {
+    position: absolute;
+    left: 50%;
+    top: 28px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--cele-secondary);
+    border: 2px solid rgba(255,255,255,.92);
+    transform: translate(-50%, 0);
+    opacity: 0;
+    box-shadow: 0 5px 12px rgba(0,0,0,.40);
+  }
+  .field-celebration.pat.show + .celebration-kick .kick-arc,
+  .field-celebration.twopoint.show + .celebration-kick .kick-arc {
+    animation: kick-arc-draw 1s ease .32s forwards;
+  }
+  .field-celebration.pat.show + .celebration-kick .kick-dot,
+  .field-celebration.twopoint.show + .celebration-kick .kick-dot {
+    animation: kick-dot-rise 1s ease .34s forwards;
+  }
+  @keyframes celebration-pop {
+    0%   { opacity: 0; transform: translate(-50%, -18px) scale(.78); }
+    12%  { opacity: 1; transform: translate(-50%, 0) scale(1.04); }
+    20%  { transform: translate(-50%, 0) scale(1); }
+    78%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -10px) scale(.96); }
+  }
+  @keyframes celebration-sheen {
+    from { transform: translateX(-140%); }
+    to   { transform: translateX(140%); }
+  }
+  @keyframes celebration-touchdown-hold {
+    0%   { opacity: 0; transform: translate(-50%, -18px) scale(.78); }
+    72%  { opacity: 1; transform: translate(-50%, 0) scale(1.04); }
+    100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  }
+  @keyframes celebration-color-flash {
+    0%, 49% { color: #fff; }
+    50%, 100% { color: var(--cele-secondary); }
+  }
+  @keyframes kick-arc-draw {
+    0% { opacity: 0; transform: scaleX(.18) scaleY(.55); }
+    20% { opacity: 1; }
+    100% { opacity: 1; transform: scaleX(.82) scaleY(1); }
+  }
+  @keyframes kick-dot-rise {
+    0% { opacity: 0; transform: translate(-50%, 18px) scale(.72); }
+    18% { opacity: 1; }
+    100% { opacity: 1; transform: translate(-50%, -22px) scale(1); }
+  }
+
+  .current-ball-marker {
+    position: absolute;
+    top: 58%;
+    transform: translate(-50%, -50%);
+    width: 0;
+    height: 0;
+    z-index: 19;
+    transition: left 1.05s cubic-bezier(.16,.84,.44,1), top 1.05s cubic-bezier(.16,.84,.44,1), opacity .2s ease;
+    pointer-events: none;
+  }
+  .current-ball-marker::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background:
+      radial-gradient(circle at 34% 28%, rgba(255,255,255,.46), transparent 35%),
+      linear-gradient(145deg, color-mix(in srgb, var(--poss-secondary) 90%, #fff), var(--poss-secondary));
+    border: 1.5px solid rgba(255,255,255,.96);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.18),
+      0 8px 16px rgba(0,0,0,.42);
+  }
+  .current-ball-marker::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: calc(50% + 10px);
+    width: 19px;
+    height: 7px;
+    border-radius: 999px;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.36);
+    filter: blur(3px);
+  }
+  .current-ball-marker.hidden {
+    opacity: 0;
+  }
+  @keyframes draw-route { from { stroke-dashoffset: var(--route-length, 100); } to { stroke-dashoffset: 0; } }
+  @keyframes pop-static-marker { from { opacity: 0; transform: scale(.5); } to { opacity: 1; transform: scale(1); } }
+  @keyframes reveal-x-marker { from { opacity: 0; } to { opacity: 1; } }
+
+  .last-play {
+    border-top: 1px dashed rgba(255,255,255,.16);
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+  .last-play-label {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-weight: 950;
+    margin-bottom: 8px;
+  }
+  .last-play-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 800;
+    margin-bottom: 7px;
+  }
+  .team-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(255,199,44,.13);
+    border: 1px solid rgba(255,199,44,.35);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 950;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .mini-team-logo-wrap {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    background: transparent;
+    border: none;
+    flex: 0 0 auto;
+    vertical-align: middle;
+    box-shadow: none;
+  }
+  .mini-team-logo-wrap.logo-home,
+  .mini-team-logo-wrap.logo-away { box-shadow: none; }
+  .mini-team-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 0;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,.32));
+  }
+  .mini-team-logo-fallback {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 950;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255,255,255,.2);
+  }
+  .mini-team-logo-fallback.logo-home { background: linear-gradient(135deg, var(--home-primary), var(--home-secondary)); }
+  .mini-team-logo-fallback.logo-away { background: linear-gradient(135deg, var(--away-primary), var(--away-secondary)); }
+
+  /* Drive-group Play-by-Play */
+  .drive-accordion-list { display: grid; gap: 14px; }
+  .drive-card {
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 18px;
+    background: rgba(255,255,255,.025);
+    overflow: hidden;
+  }
+  .drive-card[open] {
+    border-color: rgba(255,199,44,.34);
+    background: rgba(255,199,44,.045);
+  }
+  .drive-card summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    user-select: none;
+  }
+  .drive-card summary::-webkit-details-marker { display: none; }
+  .drive-summary-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .drive-summary-copy { min-width: 0; }
+  .drive-summary-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 950;
+    color: #fff;
+  }
+  .drive-result {
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-size: 11px;
+    font-weight: 950;
+  }
+  .drive-summary-meta {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .drive-chevron {
+    color: var(--muted);
+    font-weight: 950;
+    transition: transform .18s ease;
+    font-size: 18px;
+    flex: 0 0 auto;
+  }
+  .drive-card[open] .drive-chevron { transform: rotate(180deg); }
+  .drive-plays {
+    padding: 0 16px 16px;
+    display: grid;
+    gap: 10px;
+  }
+  .drive-plays .feed-item { border-radius: 14px; }
+  .event-drive .drive-result { color: var(--muted); }
+
+  .play-description {
+    font-size: 16px;
+    color: #fff;
+    font-weight: 750;
+    line-height: 1.45;
+  }
+
+  /* Side stack */
+  .side-stack { display: grid; gap: 18px; }
+  .drive-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .mini-stat {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .mini-stat-label {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 950;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .mini-stat-value {
+    margin-top: 3px;
+    font-size: 22px;
+    font-weight: 950;
+  }
+
+  /* Feeds */
+  .play-list, .score-list { display: grid; gap: 12px; }
+  .feed-item {
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.025);
+    border-radius: 16px;
+    padding: 13px 14px;
+  }
+  .feed-item.scoring { border-color: rgba(255,199,44,.36); background: rgba(255,199,44,.07); }
+  .feed-item.turnover { border-color: rgba(255,107,107,.36); background: rgba(255,107,107,.07); }
+  .feed-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 850;
+    margin-bottom: 7px;
+  }
+  .feed-text { color: #fff; font-size: 14px; font-weight: 700; }
+
+  .scoring-card {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.028);
+    border-radius: 18px;
+    padding: 13px 14px;
+  }
+  .scoring-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: .24;
+    pointer-events: none;
+  }
+  .scoring-card.home::before {
+    background: linear-gradient(90deg, var(--home-primary), transparent 72%);
+  }
+  .scoring-card.away::before {
+    background: linear-gradient(90deg, var(--away-primary), transparent 72%);
+  }
+  .scoring-card > * { position: relative; z-index: 1; }
+  .scoring-meta {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 1000;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .scoring-desc {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 850;
+    line-height: 1.35;
+  }
+  .scoring-scoreline {
+    min-width: 0;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    font-size: 16px;
+    font-weight: 1000;
+    text-align: right;
+    white-space: nowrap;
+    letter-spacing: .01em;
+  }
+
+  /* Leaders */
+  .leader-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+  .leader-team-panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,.10);
+    padding: 14px;
+    background: rgba(255,255,255,.025);
+  }
+  .leader-team-panel.home::before,
+  .leader-team-panel.away::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: .26;
+    pointer-events: none;
+  }
+  .leader-team-panel.home::before {
+    background: linear-gradient(120deg, var(--home-primary), transparent 66%);
+  }
+  .leader-team-panel.away::before {
+    background: linear-gradient(240deg, var(--away-primary), transparent 66%);
+  }
+  .leader-team-panel > * { position: relative; z-index: 1; }
+  .leader-team-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 17px;
+    font-weight: 1000;
+    margin-bottom: 13px;
+  }
+  .leader-stack { display: grid; gap: 10px; }
+  .leader-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(0,0,0,.16);
+    border-radius: 14px;
+    padding: 12px 13px;
+  }
+  .leader-cat {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    font-size: 10px;
+    font-weight: 1000;
+  }
+  .leader-name { margin-top: 4px; font-weight: 1000; font-size: 15px; }
+  .leader-value {
+    color: var(--accent);
+    font-weight: 1000;
+    font-size: 14px;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    white-space: nowrap;
+    text-align: right;
+    letter-spacing: .01em;
+  }
+
+  /* Tables */
+  .section-stack { display: grid; gap: 18px; }
+  .team-section-title {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 22px;
+    font-weight: 950;
+    margin-bottom: 14px;
+  }
+  .team-section-title span { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+  .box-grid { display: grid; gap: 16px; }
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 520px;
+  }
+  th, td {
+    padding: 10px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  th {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-size: 11px;
+    text-align: left;
+    font-weight: 950;
+  }
+  td { color: #f3f5f8; font-weight: 700; }
+  td.num, th.num { text-align: right; }
+  .subcard {
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.025);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .subcard-hd {
+    padding: 12px 14px;
+    background: rgba(255,255,255,.03);
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 950;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .empty {
+    color: var(--muted);
+    font-size: 14px;
+    padding: 4px 0;
+  }
+
+
+  .quarter-score-card .card-body {
+    padding-top: 12px;
+  }
+  .quarter-score-wrap {
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.09);
+    background: rgba(255,255,255,.025);
+  }
+  .quarter-score-grid {
+    display: grid;
+    grid-template-columns: minmax(132px, 1.6fr) repeat(var(--quarter-count, 5), minmax(46px, .58fr));
+    align-items: stretch;
+  }
+  .quarter-score-head,
+  .quarter-score-team,
+  .quarter-score-cell {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+  }
+  .quarter-score-head {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    font-size: 10px;
+    font-weight: 1000;
+    background: rgba(255,255,255,.03);
+  }
+  .quarter-score-team {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 14px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 950;
+  }
+  .quarter-score-team.home {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--home-primary) 34%, transparent), transparent 86%);
+  }
+  .quarter-score-team.away {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--away-primary) 34%, transparent), transparent 86%);
+  }
+  .quarter-score-cell {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 1000;
+    border-left: 1px solid rgba(255,255,255,.06);
+  }
+  .quarter-score-cell.total {
+    color: var(--accent);
+    font-size: 18px;
+  }
+  .quarter-score-grid > :nth-last-child(-n + var(--quarter-count, 5)) {
+    border-bottom: none;
+  }
+  .quarter-score-empty {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+
+  .player-stats-page {
+    display: grid;
+    gap: 18px;
+  }
+  .player-team-panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 24px;
+    background: rgba(255,255,255,.025);
+    padding: 16px;
+  }
+  .player-team-panel.home::before,
+  .player-team-panel.away::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .55;
+  }
+  .player-team-panel.home::before {
+    background: linear-gradient(115deg, color-mix(in srgb, var(--home-primary) 42%, transparent), transparent 56%);
+  }
+  .player-team-panel.away::before {
+    background: linear-gradient(245deg, color-mix(in srgb, var(--away-primary) 42%, transparent), transparent 56%);
+  }
+  .player-team-header,
+  .player-stat-grid {
+    position: relative;
+    z-index: 1;
+  }
+  .player-team-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 4px 2px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    margin-bottom: 16px;
+  }
+  .player-team-identity {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+  .player-team-name {
+    color: #fff;
+    font-size: 24px;
+    line-height: 1.05;
+    font-weight: 1000;
+  }
+  .player-team-label {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    font-size: 11px;
+    font-weight: 950;
+    margin-top: 4px;
+  }
+  .player-team-accent {
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    font-size: 11px;
+    font-weight: 1000;
+  }
+  .player-stat-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .player-stat-grid .subcard {
+    background: rgba(0,0,0,.22);
+    border-color: rgba(255,255,255,.11);
+    border-radius: 20px;
+  }
+  .player-stat-grid .subcard-hd {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 15px;
+    font-size: 12px;
+  }
+  .player-team-panel.home .subcard-hd {
+    color: color-mix(in srgb, var(--home-secondary) 78%, #fff);
+  }
+  .player-team-panel.away .subcard-hd {
+    color: color-mix(in srgb, var(--away-secondary) 78%, #fff);
+  }
+  .player-stat-grid table {
+    min-width: 580px;
+  }
+  .player-stat-grid tbody tr:hover td {
+    background: rgba(255,255,255,.035);
+  }
+  .player-stat-grid td:first-child {
+    font-weight: 950;
+    color: #fff;
+  }
+
+  .team-stats-dashboard {
+    display: grid;
+    gap: 16px;
+  }
+  .team-stats-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
+  }
+  .team-hero-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 126px;
+    border-radius: 22px;
+    border: 1px solid rgba(255,255,255,.10);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: rgba(255,255,255,.028);
+  }
+  .team-hero-card.home::before,
+  .team-hero-card.away::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .62;
+  }
+  .team-hero-card.home::before {
+    background: linear-gradient(100deg, color-mix(in srgb, var(--home-primary) 48%, transparent), transparent 74%);
+  }
+  .team-hero-card.away::before {
+    background: linear-gradient(260deg, color-mix(in srgb, var(--away-primary) 48%, transparent), transparent 74%);
+  }
+  .team-hero-top,
+  .team-hero-metrics { position: relative; z-index: 1; }
+  .team-hero-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .team-hero-name {
+    font-size: 18px;
+    font-weight: 1000;
+    line-height: 1.08;
+    color: #fff;
+    min-width: 0;
+  }
+  .team-hero-sub {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    font-weight: 900;
+    margin-top: 3px;
+  }
+  .team-hero-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .hero-metric {
+    border-radius: 14px;
+    padding: 10px 11px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(0,0,0,.20);
+  }
+  .hero-metric-label {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .hero-metric-value {
+    display: block;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 1000;
+    line-height: 1;
+  }
+  .team-hero-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 950;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .team-stats-section {
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.09);
+    background: rgba(255,255,255,.025);
+  }
+  .team-stats-section-hd {
+    padding: 13px 16px;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 1000;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.032);
+  }
+  .comparison-list {
+    display: grid;
+  }
+  .comparison-row {
+    display: grid;
+    grid-template-columns: minmax(84px, 1fr) minmax(120px, 1.15fr) minmax(84px, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-height: 58px;
+    padding: 11px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+  }
+  .comparison-row:last-child { border-bottom: none; }
+  .comparison-value {
+    font-size: 18px;
+    font-weight: 1000;
+    color: #f6f7fb;
+    text-align: center;
+    line-height: 1.1;
+  }
+  .comparison-value.lead-home { color: color-mix(in srgb, var(--home-secondary) 74%, #fff); }
+  .comparison-value.lead-away { color: color-mix(in srgb, var(--away-secondary) 74%, #fff); }
+  .comparison-mid {
+    text-align: center;
+    display: grid;
+    gap: 6px;
+  }
+  .comparison-label {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    font-weight: 1000;
+  }
+  .comparison-track {
+    position: relative;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    overflow: hidden;
+    display: flex;
+  }
+  .comparison-home-fill,
+  .comparison-away-fill {
+    position: relative;
+    top: auto;
+    bottom: auto;
+    height: 100%;
+    opacity: 1;
+    transition: width .35s ease;
+  }
+  .comparison-home-fill {
+    background: var(--home-primary);
+    border-radius: 999px 0 0 999px;
+  }
+  .comparison-away-fill {
+    background: var(--away-primary);
+    border-radius: 0 999px 999px 0;
+  }
+  .comparison-neutral {
+    color: #fff;
+  }
+
+
+  @media (max-width: 720px) {
+    .matchup-context-line {
+      margin: -5px 0 9px;
+      gap: 6px;
+      font-size: 10px;
+      letter-spacing: .07em;
+    }
+    .matchup-context-chip {
+      min-height: 20px;
+      padding: 2px 7px;
+    }
+    .team-record {
+      margin-top: 3px;
+      font-size: 9px;
+      letter-spacing: .06em;
+    }
+    .team-timeouts {
+      margin-top: 5px;
+      gap: 4px;
+      font-size: 8px;
+    }
+    .timeout-dot {
+      width: 7px;
+      height: 7px;
+    }
+  }
+
+@media (max-width: 720px) {
+    .live-update-row {
+      margin: -2px 0 10px;
+      font-size: 10px;
+      gap: 6px;
+    }
+    .period-state-banner {
+      margin-bottom: 14px;
+      padding: 14px 14px;
+      border-radius: 18px;
+    }
+    .period-state-title {
+      font-size: clamp(22px, 6.4vw, 30px);
+    }
+    .period-state-sub {
+      font-size: 12px;
+    }
+    .current-drive-inline {
+      margin-top: 14px;
+      padding: 13px 12px;
+      border-radius: 18px;
+    }
+    .current-drive-logo {
+      width: 40px;
+      height: 40px;
+    }
+    .current-drive-title {
+      font-size: 15px;
+    }
+    .current-drive-sub {
+      font-size: 11px;
+    }
+    .current-drive-stats {
+      gap: 8px;
+    }
+    .current-drive-stat {
+      padding: 9px 6px;
+    }
+    .current-drive-stat-value {
+      font-size: 17px;
+    }
+    .current-drive-stat-value.drive-start {
+      font-size: 11px;
+    }
+  }
+
+@media (max-width: 720px) {
+    .field-celebration {
+      top: 6px;
+      min-width: min(90%, 420px);
+      gap: 9px;
+      padding: 9px 12px;
+    }
+    .celebration-logo {
+      width: 38px;
+      height: 38px;
+    }
+    .celebration-word {
+      font-size: clamp(17px, 5vw, 25px);
+      letter-spacing: .06em;
+    }
+    .celebration-sub {
+      font-size: 9px;
+      letter-spacing: .13em;
+    }
+    .celebration-kick {
+      height: 46px;
+      width: min(58%, 220px);
+    }
+  }
+
+@media (max-width: 720px) {
+    .scoreboard-shell {
+      background:
+        linear-gradient(90deg,
+          color-mix(in srgb, var(--home-primary) 42%, rgba(20,23,30,.96)) 0%,
+          rgba(20,23,30,.97) 39%,
+          rgba(20,23,30,.97) 61%,
+          color-mix(in srgb, var(--away-primary) 42%, rgba(20,23,30,.96)) 100%
+        );
+    }
+    .scoreboard {
+      padding: 13px 12px 12px;
+    }
+    .game-kicker {
+      margin-bottom: 10px;
+      font-size: 10px;
+      text-align: center;
+      letter-spacing: .15em;
+    }
+
+    .score-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 82px minmax(0, 1fr);
+      grid-template-areas: "home center away";
+      align-items: center;
+      column-gap: 8px;
+      min-height: 68px;
+    }
+
+    #home-card {
+      grid-area: home;
+      padding-right: 31px;
+    }
+    #home-score {
+      grid-area: home;
+      justify-self: end;
+      align-self: center;
+      z-index: 4;
+      margin-right: 0;
+    }
+    .game-center {
+      grid-area: center;
+      min-width: 82px;
+      width: 82px;
+      text-align: center;
+      display: block;
+      padding: 0;
+    }
+    #away-card {
+      grid-area: away;
+      padding-left: 31px;
+    }
+    #away-score {
+      grid-area: away;
+      justify-self: start;
+      align-self: center;
+      z-index: 4;
+      margin-left: 0;
+    }
+
+    .team-score-card {
+      min-height: 58px;
+      gap: 6px;
+      justify-content: flex-start;
+      overflow: visible;
+    }
+    .team-home {
+      justify-content: flex-start;
+    }
+    .team-away {
+      justify-content: flex-end;
+    }
+    .team-side {
+      gap: 7px;
+      width: 100%;
+      min-width: 0;
+      align-items: center;
+    }
+    .away-side {
+      flex-direction: row;
+      justify-content: flex-end;
+      margin-left: 0;
+      order: initial;
+    }
+    .away-meta {
+      text-align: right;
+    }
+
+    .team-logo-wrap {
+      width: 40px;
+      height: 40px;
+      flex: 0 0 auto;
+    }
+    .team-logo-fallback {
+      width: 38px;
+      height: 38px;
+      font-size: 14px;
+    }
+
+    .team-abbr {
+      display: none;
+    }
+    .team-name {
+      font-size: clamp(14px, 3.9vw, 17px);
+      line-height: 1.02;
+      font-weight: 1000;
+      letter-spacing: -.015em;
+      max-width: 118px;
+      white-space: normal;
+      overflow: visible;
+    }
+
+    .team-score {
+      font-size: clamp(28px, 7.4vw, 38px);
+      line-height: .95;
+      min-width: .8ch;
+      text-align: center;
+    }
+
+    .period {
+      padding: 5px 9px;
+      font-size: 10px;
+    }
+    .clock {
+      margin-top: 5px;
+      font-size: clamp(22px, 6.2vw, 30px);
+    }
+  }
+
+@media (max-width: 980px) {
+    .gamecast-grid { grid-template-columns: 1fr; }
+    .leader-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 720px) {
+    .quarter-score-grid {
+      grid-template-columns: minmax(112px, 1.35fr) repeat(var(--quarter-count, 5), minmax(38px, .54fr));
+    }
+    .quarter-score-team {
+      gap: 7px;
+      padding: 0 9px;
+      font-size: 12px;
+    }
+    .quarter-score-cell {
+      font-size: 13px;
+    }
+    .quarter-score-cell.total {
+      font-size: 16px;
+    }
+    .player-team-panel {
+      padding: 13px;
+      border-radius: 20px;
+    }
+    .player-team-header {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .player-team-name {
+      font-size: 20px;
+    }
+    .player-team-identity {
+      gap: 10px;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .wrap { padding-left: 10px; padding-right: 10px; }
+    .scoreboard { padding: 12px 10px 11px; }
+    .tabbar { padding-left: 10px; padding-right: 10px; }
+    .game-kicker { font-size: 10px; margin-bottom: 9px; }
+    .score-grid { grid-template-columns: minmax(0,1fr) 84px minmax(0,1fr); gap: 7px; }
+    .team-score-card { min-height: 66px; padding: 10px 10px; border-radius: 15px; gap: 7px; }
+    .team-abbr {
+      display: none;
+    }
+    .team-name {
+      font-size: clamp(14px, 3.9vw, 17px);
+      line-height: 1.02;
+      font-weight: 1000;
+      letter-spacing: -.015em;
+      max-width: 118px;
+      white-space: normal;
+      overflow: visible;
+    }
+    .team-score { font-size: 34px; }
+    .possession-pill { margin-top: 3px; font-size: 9px; }
+    .period { padding: 5px 9px; font-size: 10px; }
+    .clock { font-size: 24px; margin-top: 6px; }
+    .status-line { font-size: 10px; margin-top: 5px; line-height: 1.25; }
+    .tab-btn { padding: 14px 12px 12px; font-size: 14px; }
+    .tab-panel { padding-top: 12px; }
+    .card { border-radius: 18px; }
+    .card-hd { padding: 12px 14px; }
+    .card-body, .field-feature .card-body { padding: 14px; }
+    .situation-strip { grid-template-columns: repeat(3, 1fr); padding-bottom: 12px; margin-bottom: 12px; }
+    .situation-stat { padding: 0 8px; }
+    .situation-label { font-size: 10px; letter-spacing: .11em; }
+    .situation-value { font-size: 16px; }
+    .drive-row { grid-template-columns: 1fr 1fr 1fr; }
+    .team-logo-wrap { width: 34px; height: 34px; }
+    .team-side { gap: 8px; }
+    .field-stage {
+      padding: 7px 5px 16px;
+      min-height: clamp(214px, 54vw, 258px);
+    }
+    .field-camera {
+      left: 5px;
+      right: 5px;
+      top: 6px;
+      height: clamp(176px, 48vw, 214px);
+    }
+    .play-overlay { inset: 0; width: 100%; height: 100%; }
+    .field-number.bottom {
+      top: 75%;
+      font-size: clamp(11px, 2.9vw, 14px);
+      font-weight: 1000;
+      text-shadow: 0 2px 8px rgba(0,0,0,.72);
+    }
+    .field-line { width: 3px; }
+    .current-ball-marker::before { width: 15px; height: 15px; }
+    .current-ball-marker::after { width: 16px; height: 6px; top: calc(50% + 8px); }
+    .possession-logo-marker { width: 64px; height: 64px; top: 0%; }
+    .possession-logo-fallback { width: 48px; height: 48px; font-size: 13px; }
+    .field { border-radius: 15px 15px 12px 12px; }
+    .possession-logo-marker { top: 22px; width: 48px; height: 48px; }
+    .field-team-logo { top: 58px; width: 36px; height: 36px; }
+    .field-team-logo-left { left: 28px; }
+    .field-team-logo-right { right: 28px; }
+    .field-floating-label { top: 14px; font-size: 10px; padding: 4px 8px; }
+    .current-ball-marker { top: calc(10px + clamp(176px, 48vw, 214px) * .58); width: 13px; height: 13px; }
+    .last-play { margin-top: 12px; padding-top: 12px; }
+    .last-play-label { font-size: 11px; margin-bottom: 6px; }
+    .play-description { font-size: 15px; }
+  }
+
+  @media (max-width: 520px) {
+    .team-logo-wrap { width: 54px; height: 54px; }
+    .possession-logo-marker { width: 64px; height: 64px; top: 24px; }
+    .mini-team-logo-wrap { width: 32px; height: 32px; }
+  }
+
+
+  @media (max-width: 720px) {
+    .team-stats-hero {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .team-hero-divider { display: none; }
+    .team-hero-card { min-height: 118px; }
+    .comparison-row {
+      grid-template-columns: minmax(64px, .86fr) minmax(112px, 1.18fr) minmax(64px, .86fr);
+      gap: 8px;
+      padding: 11px 10px;
+    }
+    .comparison-value { font-size: 15px; }
+    .comparison-label { font-size: 10px; letter-spacing: .10em; }
+    .team-hero-name { font-size: 16px; }
+    .hero-metric-value { font-size: 20px; }
+  }
+
+  @media (max-width: 420px) {
+    .score-grid { grid-template-columns: minmax(0,1fr) 72px minmax(0,1fr); }
+    .team-name { display: none; }
+    .team-score-card { min-height: 60px; }
+    .team-score { font-size: 31px; }
+    .clock { font-size: 21px; }
+    .status-line { display: none; }
+    .situation-stat { padding: 0 5px; }
+    .situation-value { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<div id="loading">🏈 Loading GameCast…</div>
+<div id="error-banner"></div>
+
+<header class="scoreboard-shell">
+  <div class="scoreboard">
+    <div class="game-kicker" id="game-kicker">Football GameCast — Live</div>
+    <div class="matchup-context-line" id="matchup-context-line" style="display:none;"></div>
+    <div class="live-update-row" aria-live="polite">
+      <span class="live-dot"></span>
+      <span class="live-label">Live</span>
+      <span class="live-divider">•</span>
+      <span id="live-updated-text">Updated just now</span>
+    </div>
+    <div class="score-grid">
+      <section class="team-score-card team-home" id="home-card">
+        <div class="team-side">
+          <div class="team-logo-wrap">
+            <img class="team-logo" id="home-logo" alt="Home team logo" style="display:none;">
+            <div class="team-logo-fallback" id="home-logo-fallback">H</div>
+          </div>
+          <div class="team-meta">
+            <div class="team-abbr" id="home-abbr">HOME</div>
+            <div class="team-name" id="home-name">Home</div>
+            <div class="team-record" id="home-record" style="display:none;">(0-0)</div>
+            <div class="team-timeouts" id="home-timeouts" aria-label="Home timeouts"></div>
+            <div class="possession-pill" id="home-possession" style="display:none;">Possession</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="team-score" id="home-score">0</div>
+
+      <section class="game-center">
+        <div class="period" id="period">1st</div>
+        <div class="clock" id="clock">12:00</div>
+        <div class="status-line" id="status-line">Awaiting live state</div>
+      </section>
+
+      <div class="team-score" id="away-score">0</div>
+
+      <section class="team-score-card team-away" id="away-card">
+        <div class="team-side away-side">
+          <div class="team-meta away-meta">
+            <div class="team-abbr" id="away-abbr">AWAY</div>
+            <div class="team-name" id="away-name">Away</div>
+            <div class="team-record" id="away-record" style="display:none;">(0-0)</div>
+            <div class="team-timeouts away-timeouts" id="away-timeouts" aria-label="Away timeouts"></div>
+            <div class="possession-pill" id="away-possession" style="display:none;">Possession</div>
+          </div>
+          <div class="team-logo-wrap">
+            <img class="team-logo" id="away-logo" alt="Away team logo" style="display:none;">
+            <div class="team-logo-fallback" id="away-logo-fallback">A</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</header>
+
+<nav class="tabbar-shell">
+  <div class="tabbar">
+    <button class="tab-btn active" data-tab="gamecast">Gamecast</button>
+    <button class="tab-btn" data-tab="boxscore">Box Score</button>
+    <button class="tab-btn" data-tab="playbyplay">Play-by-Play</button>
+    <button class="tab-btn" data-tab="teamstats">Team Stats</button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <section class="tab-panel active" id="panel-gamecast">
+    <div class="period-state-banner" id="period-state-banner" style="display:none;">
+      <div class="period-state-kicker">Game Status</div>
+      <div class="period-state-title" id="period-state-title">Halftime</div>
+      <div class="period-state-sub" id="period-state-sub">The next period will begin shortly.</div>
+    </div>
+    <div class="gamecast-grid">
+      <div class="section-stack">
+        <article class="card field-feature">
+          <div class="card-body">
+            <div class="situation-strip">
+              <div class="situation-stat">
+                <div class="situation-label">Down</div>
+                <div class="situation-value" id="situation-down">—</div>
+              </div>
+              <div class="situation-stat">
+                <div class="situation-label">Ball On</div>
+                <div class="situation-value" id="situation-ball">—</div>
+              </div>
+              <div class="situation-stat">
+                <div class="situation-label">Drive</div>
+                <div class="situation-value" id="situation-drive">—</div>
+              </div>
+            </div>
+
+            <div class="field-wrap">
+              <div class="field-stage">
+                <div class="field-shadow"></div>
+
+                <div class="field-camera">
+                  <div class="field" id="field">
+                    <div class="endzone-label left"><span id="endzone-home-name">HOME</span></div>
+                    <div class="endzone-label right"><span id="endzone-away-name">AWAY</span></div>
+                    <div class="field-of-play">
+                      <div class="yard-line goal" style="left:0%"></div>
+                      <div class="yard-line" style="left:5%"></div>
+                      <div class="yard-line major" style="left:10%"></div>
+                      <div class="yard-line" style="left:15%"></div>
+                      <div class="yard-line major" style="left:20%"></div>
+                      <div class="yard-line" style="left:25%"></div>
+                      <div class="yard-line major" style="left:30%"></div>
+                      <div class="yard-line" style="left:35%"></div>
+                      <div class="yard-line major" style="left:40%"></div>
+                      <div class="yard-line" style="left:45%"></div>
+                      <div class="yard-line midfield" style="left:50%"></div>
+                      <div class="yard-line" style="left:55%"></div>
+                      <div class="yard-line major" style="left:60%"></div>
+                      <div class="yard-line" style="left:65%"></div>
+                      <div class="yard-line major" style="left:70%"></div>
+                      <div class="yard-line" style="left:75%"></div>
+                      <div class="yard-line major" style="left:80%"></div>
+                      <div class="yard-line" style="left:85%"></div>
+                      <div class="yard-line major" style="left:90%"></div>
+                      <div class="yard-line" style="left:95%"></div>
+                      <div class="yard-line goal" style="left:100%"></div>
+                      <div class="field-number bottom" style="left:10%">10</div>
+                      <div class="field-number bottom" style="left:20%">20</div>
+                      <div class="field-number bottom" style="left:30%">30</div>
+                      <div class="field-number bottom" style="left:40%">40</div>
+                      <div class="field-number bottom" style="left:50%">50</div>
+                      <div class="field-number bottom" style="left:60%">40</div>
+                      <div class="field-number bottom" style="left:70%">30</div>
+                      <div class="field-number bottom" style="left:80%">20</div>
+                      <div class="field-number bottom" style="left:90%">10</div>
+                    </div>
+                    <div class="field-line firstdown" id="firstdown-line" style="left:60%"></div>
+                <svg class="play-overlay" id="play-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  <path id="drive-trail" class="drive-trail" d=""></path>
+                  <path id="play-route" class="play-route" d=""></path>
+                  <path id="kick-return-route" class="kick-return-route" d=""></path>
+                  <path id="kickoff-return-route" class="kickoff-return-route" d=""></path>
+                  <circle id="play-start-dot" class="play-start-dot" cx="50" cy="56" r="1.45"></circle>
+                  <circle id="play-end-dot" class="play-end-dot" cx="50" cy="56" r="1.9"></circle>
+                  <g id="play-end-x" class="play-end-x" transform="translate(50 56)">
+                    <line x1="-2.25" y1="-2.25" x2="2.25" y2="2.25"></line>
+                    <line x1="2.25" y1="-2.25" x2="-2.25" y2="2.25"></line>
+                  </g>
+                  <g id="play-end-check" class="play-end-check" transform="translate(50 56)">
+                    <path d="M -2.45 0.1 L -0.55 2.1 L 2.75 -2.15"></path>
+                  </g>
+                </svg>
+                    <div class="possession-logo-marker" id="possession-logo-marker" style="left:50%">
+                      <img id="possession-logo-img" alt="Possessing team logo">
+                      <div class="possession-logo-fallback" id="possession-logo-fallback">P</div>
+                    </div>
+                    <div class="current-ball-marker" id="ball-marker" style="left:50%"></div>
+                  </div>
+                </div>
+
+                <div class="field-celebration" id="field-celebration" aria-hidden="true">
+                  <img class="celebration-logo" id="celebration-logo-left" alt="">
+                  <div class="celebration-copy">
+                    <div class="celebration-word" id="celebration-word">Touchdown</div>
+                    <div class="celebration-sub" id="celebration-sub">Scoring play</div>
+                  </div>
+                  <img class="celebration-logo" id="celebration-logo-right" alt="">
+                </div>
+                <div class="celebration-kick" id="celebration-kick" aria-hidden="true">
+                  <div class="kick-arc"></div>
+                  <div class="kick-dot"></div>
+                </div>
+
+
+              </div>
+            </div>
+
+            <div class="last-play">
+              <div class="last-play-label">Last Play</div>
+              <div class="last-play-meta" id="last-play-meta">No plays submitted yet.</div>
+              <div class="play-description" id="last-play-text">Game starts soon.</div>
+            </div>
+
+            <div class="current-drive-inline" id="current-drive-inline">
+              <div class="current-drive-top">
+                <div class="current-drive-logo" id="current-drive-logo"></div>
+                <div class="current-drive-copy">
+                  <div class="current-drive-label">Current Drive</div>
+                  <div class="current-drive-title" id="current-drive-title">Awaiting possession</div>
+                  <div class="current-drive-sub" id="current-drive-sub">Drive information will appear here.</div>
+                </div>
+              </div>
+              <div class="current-drive-stats">
+                <div class="current-drive-stat">
+                  <div class="current-drive-stat-label">Plays</div>
+                  <div class="current-drive-stat-value" id="current-drive-plays">0</div>
+                </div>
+                <div class="current-drive-stat">
+                  <div class="current-drive-stat-label">Yards</div>
+                  <div class="current-drive-stat-value" id="current-drive-yards">0</div>
+                </div>
+                <div class="current-drive-stat">
+                  <div class="current-drive-stat-label">Start</div>
+                  <div class="current-drive-stat-value drive-start" id="current-drive-start">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card quarter-score-card">
+          <div class="card-hd">
+            <div class="card-title">Score by Quarter</div>
+            <div class="card-subtitle">Live scoring breakdown</div>
+          </div>
+          <div class="card-body">
+            <div id="quarter-score-content"></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-hd">
+            <div class="card-title">Stat Leaders</div>
+            <div class="card-subtitle">Live leaders for both teams</div>
+          </div>
+          <div class="card-body">
+            <div class="leader-grid" id="leader-grid"></div>
+          </div>
+        </article>
+      </div>
+
+      <aside class="side-stack">
+        <article class="card">
+          <div class="card-hd">
+            <div class="card-title">Scoring Summary</div>
+            <div class="card-subtitle">Team identified on every score</div>
+          </div>
+          <div class="card-body">
+            <div class="score-list" id="scoring-list"></div>
+          </div>
+        </article>
+      </aside>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="panel-boxscore">
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Full Box Score</div>
+        <div class="card-subtitle">Player stats by team and category</div>
+      </div>
+      <div class="card-body">
+        <div class="section-stack" id="boxscore-content"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="panel-playbyplay">
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Play-by-Play</div>
+        <div class="card-subtitle">Drives summarized first — expand any drive to view every play</div>
+      </div>
+      <div class="card-body">
+        <div class="drive-accordion-list" id="drive-play-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="panel-teamstats">
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Team Stats</div>
+        <div class="card-subtitle">Live comparison</div>
+      </div>
+      <div class="card-body" id="team-stats-content"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  let latestData = null;
+  let localClockTimer = null;
+  let clockAnchorMs = Date.now();
+  let lastAnimatedPlayKey = null;
+  let lastCelebratedPlayKey = null;
+  let celebrationTimer = null;
+  let fieldHasRenderedOnce = false;
+  let possessionMarkerAnimationFrame = null;
+  let activeMarkerAnimationPlayKey = null;
+  let routeFadeTimer = null;
+  let fadedRoutePlayKey = null;
+  let lastDataRefreshMs = Date.now();
+
+  function esc(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function showError(message) {
+    const el = document.getElementById('error-banner');
+    el.style.display = 'block';
+    el.textContent = 'GameCast data error: ' + message;
+  }
+
+  function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+  }
+
+  function ordinal(n) {
+    const num = parseInt(n, 10);
+    return ({1:'1st', 2:'2nd', 3:'3rd', 4:'4th'})[num] || '—';
+  }
+
+  function num(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function sideForTeam(team, setup) {
+    const t = String(team || '').trim();
+    const home = [setup.HOME_TEAM_NAME, setup.HOME_ABBR].map(v => String(v || '').trim()).filter(Boolean);
+    const away = [setup.AWAY_TEAM_NAME, setup.AWAY_ABBR].map(v => String(v || '').trim()).filter(Boolean);
+    if (home.includes(t)) return 'home';
+    if (away.includes(t)) return 'away';
+    return '';
+  }
+
+  function teamAbbr(side, setup) {
+    return side === 'home' ? (setup.HOME_ABBR || 'HOME') : side === 'away' ? (setup.AWAY_ABBR || 'AWAY') : '—';
+  }
+
+  function formatQuarter(qtr) {
+    if (String(qtr).toUpperCase() === 'OT') return 'OT';
+    const n = parseInt(qtr, 10) || 1;
+    if (n === 1) return '1st';
+    if (n === 2) return '2nd';
+    if (n === 3) return '3rd';
+    if (n === 4) return '4th';
+    return String(n);
+  }
+
+  function formatClockDisplay(state) {
+    const running = String(state.CLOCK_RUNNING).toLowerCase() === 'true' || state.CLOCK_RUNNING === true;
+    const baseSeconds = num(state.CLOCK_SECONDS, parseClockToSeconds(state.CLOCK));
+    let sec = baseSeconds;
+    if (running) {
+      // The server already sends the correct live clock at fetch time.
+      // Count down locally from the moment this payload was rendered instead
+      // of subtracting browser time from a server timestamp, which can jump.
+      const elapsedSinceRender = Math.max(0, Math.floor((Date.now() - clockAnchorMs) / 1000));
+      sec = Math.max(0, baseSeconds - elapsedSinceRender);
+    }
+    return secondsToClock(sec);
+  }
+
+  function parseClockToSeconds(value) {
+    const s = String(value || '').trim();
+    const m = s.match(/(\d{1,2}):(\d{2})/);
+    if (!m) return 0;
+    return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  }
+
+  function secondsToClock(sec) {
+    sec = Math.max(0, Math.floor(num(sec, 0)));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function refreshLiveClock() {
+    if (!latestData) return;
+    const clockEl = document.getElementById('clock');
+    const state = latestData.state || {};
+    clockEl.textContent = formatClockDisplay(state);
+    const running = String(state.CLOCK_RUNNING).toLowerCase() === 'true' || state.CLOCK_RUNNING === true;
+    clockEl.classList.toggle('running', running);
+    refreshUpdatedText();
+    renderPeriodStateBanner(state);
+  }
+
+  function absoluteToPossessionSpot(abs, possSide) {
+    const clamped = Math.max(0, Math.min(100, num(abs, 50)));
+    if (possSide === 'home') {
+      return clamped <= 50
+        ? { side: 'OWN', yard: Math.round(clamped) }
+        : { side: 'OPP', yard: Math.round(100 - clamped) };
+    }
+    if (possSide === 'away') {
+      return clamped >= 50
+        ? { side: 'OWN', yard: Math.round(100 - clamped) }
+        : { side: 'OPP', yard: Math.round(clamped) };
+    }
+    return { side: 'OWN', yard: Math.round(clamped) };
+  }
+
+  function parsePlaySituationDownDistance(situation) {
+    const raw = String(situation || '').trim();
+    const match = raw.match(/(\d+)(?:st|nd|rd|th)\s*&\s*(\d+)/i);
+    if (!match) return null;
+    return {
+      down: Math.max(1, num(match[1], 1)),
+      distance: Math.max(1, num(match[2], 10)),
+    };
+  }
+
+  function samePossessionSpot(state, expectedSpot) {
+    if (!state || !expectedSpot) return false;
+    const actualSide = String(state.YARD_LINE_SIDE || '').toUpperCase();
+    const expectedSide = String(expectedSpot.side || '').toUpperCase();
+    const actualYard = Math.round(num(state.YARD_LINE, -999));
+    const expectedYard = Math.round(num(expectedSpot.yard, -998));
+    return actualSide === expectedSide && actualYard === expectedYard;
+  }
+
+  function expectedPostPlayVisualState(state, setup, possSide, recentPlays) {
+    const play = (recentPlays || [])[0];
+    if (!play) return null;
+
+    const playType = String(play.playType || '').toUpperCase();
+    const result = String(play.result || '').toUpperCase();
+    if (!['RUSH', 'PASS'].includes(playType)) return null;
+    if (play.isTurnover) return null;
+    if (String(state.NEXT_ACTION || 'NORMAL').toUpperCase() !== 'NORMAL') return null;
+
+    const prePlaySituation = parsePlaySituationDownDistance(play.situation);
+    if (!prePlaySituation) return null;
+
+    const startAbs = parseBallOnToAbsolute(play.ballOn, setup);
+    if (!Number.isFinite(startAbs)) return null;
+
+    const offenseSide = play.teamSide || sideForTeam(play.team, setup) || possSide || 'home';
+    const direction = offenseSide === 'away' ? -1 : 1;
+    const playYards = num(play.yards, 0);
+    const prePlayDown = prePlaySituation.down;
+    const prePlayDistance = prePlaySituation.distance;
+
+    let endAbs = startAbs;
+    if (result === 'TD') {
+      endAbs = offenseSide === 'away' ? 0 : 100;
+    } else if (playType === 'PASS' && result === 'INC') {
+      endAbs = startAbs;
+    } else {
+      endAbs = Math.max(0, Math.min(100, startAbs + direction * playYards));
+    }
+
+    // Avoid predicting turnover-on-downs behavior here.
+    if (prePlayDown >= 4 && !['FIRST_DOWN', 'TD'].includes(result)) return null;
+
+    let predictedDown = prePlayDown;
+    let predictedDistance = prePlayDistance;
+
+    if (result === 'TD') {
+      predictedDown = 1;
+      predictedDistance = 10;
+    } else if (result === 'FIRST_DOWN') {
+      predictedDown = 1;
+      const yardsToGoal = offenseSide === 'away' ? endAbs : 100 - endAbs;
+      predictedDistance = Math.max(1, Math.min(10, Math.round(yardsToGoal)));
+    } else if (playType === 'PASS' && result === 'INC') {
+      predictedDown = prePlayDown + 1;
+      predictedDistance = prePlayDistance;
+    } else {
+      predictedDown = prePlayDown + 1;
+      predictedDistance = Math.max(1, Math.round(prePlayDistance - playYards));
+    }
+
+    const expectedSpot = absoluteToPossessionSpot(endAbs, possSide);
+
+    // If official state already matches the post-play state, do not apply the
+    // optimistic bridge. This prevents the previous "double advance" bug:
+    // 2nd & 7 + 3 yards -> official 3rd & 4, but visual layer incorrectly
+    // pushed it onward to 4th & 1.
+    const officialAlreadyUpdated =
+      samePossessionSpot(state, expectedSpot) &&
+      Math.max(1, num(state.DOWN, 1)) === predictedDown &&
+      Math.max(1, num(state.DISTANCE, 10)) === predictedDistance;
+
+    if (officialAlreadyUpdated) return null;
+
+    // Only bridge the visual state when the official payload still appears to
+    // be the *pre-play* state.
+    const officialStillPrePlay =
+      Math.abs(absoluteFieldSpot(state, possSide) - startAbs) < .15 &&
+      Math.max(1, num(state.DOWN, 1)) === prePlayDown &&
+      Math.max(1, num(state.DISTANCE, 10)) === prePlayDistance;
+
+    if (!officialStillPrePlay) return null;
+
+    return {
+      ...state,
+      DOWN: predictedDown,
+      DISTANCE: predictedDistance,
+      YARD_LINE_SIDE: expectedSpot.side,
+      YARD_LINE: expectedSpot.yard,
+      DRIVE_PLAYS: num(state.DRIVE_PLAYS, 0) + 1,
+      DRIVE_YARDS: num(state.DRIVE_YARDS, 0) + (playType === 'PASS' && result === 'INC' ? 0 : playYards),
+      __OPTIMISTIC_VISUAL_STATE: true,
+    };
+  }
+
+
+  function specialNextActionVisualState(state, setup) {
+    const nextAction = String(state.NEXT_ACTION || 'NORMAL').toUpperCase();
+    if (nextAction !== 'PAT' && nextAction !== 'KICKOFF') return state;
+
+    if (nextAction === 'PAT') {
+      return {
+        ...state,
+        DOWN: 1,
+        DISTANCE: 3,
+        YARD_LINE_SIDE: 'OPP',
+        YARD_LINE: 3,
+        __SPECIAL_VISUAL_STATE: 'PAT',
+      };
+    }
+
+    return {
+      ...state,
+      DOWN: 1,
+      DISTANCE: 10,
+      YARD_LINE_SIDE: 'OWN',
+      YARD_LINE: 35,
+      __SPECIAL_VISUAL_STATE: 'KICKOFF',
+    };
+  }
+
+  function buildSituationDownText(state) {
+    const nextAction = String(state.NEXT_ACTION || 'NORMAL').toUpperCase();
+    if (nextAction === 'PAT') return 'PAT / 2PT';
+    if (nextAction === 'KICKOFF') return 'Kickoff';
+    return `${ordinal(state.DOWN)} & ${state.DISTANCE || '—'}`;
+  }
+
+  function buildSituationDriveText(state) {
+    const nextAction = String(state.NEXT_ACTION || 'NORMAL').toUpperCase();
+    if (nextAction === 'PAT') return 'Conversion pending';
+    if (nextAction === 'KICKOFF') return 'Kickoff pending';
+    return `${state.DRIVE_PLAYS || 0} plays, ${state.DRIVE_YARDS || 0} yds`;
+  }
+
+  function clearCurrentDriveTrail() {
+    const trail = document.getElementById('drive-trail');
+    if (!trail) return;
+    trail.setAttribute('d', '');
+    trail.classList.remove('visible');
+  }
+
+  function applyFieldPossessionVisual(setup, side) {
+    const possPrimary = safeHex(side === 'away' ? setup.AWAY_PRIMARY_COLOR : setup.HOME_PRIMARY_COLOR, '#ffc72c');
+    const possSecondary = safeHex(side === 'away' ? setup.AWAY_SECONDARY_COLOR : setup.HOME_SECONDARY_COLOR, '#ffc72c');
+    document.documentElement.style.setProperty('--poss-primary', possPrimary);
+    document.documentElement.style.setProperty('--poss-secondary', possSecondary);
+    updatePossessionLogo(setup, side);
+  }
+
+  function render(data) {
+    latestData = data || {};
+    clockAnchorMs = Date.now();
+    lastDataRefreshMs = Date.now();
+    hideLoading();
+    document.getElementById('error-banner').style.display = 'none';
+
+    const state = data.state || {};
+    const setup = data.setup || {};
+    const homeName = setup.HOME_TEAM_NAME || 'Home';
+    const awayName = setup.AWAY_TEAM_NAME || 'Away';
+    const homeAbbr = setup.HOME_ABBR || 'HOME';
+    const awayAbbr = setup.AWAY_ABBR || 'AWAY';
+    const possSide = sideForTeam(state.POSSESSION, setup);
+    const optimisticState = expectedPostPlayVisualState(state, setup, possSide, data.recentPlays || []) || state;
+    const displayState = specialNextActionVisualState(optimisticState, setup);
+
+    applyBranding(setup, homeAbbr, awayAbbr);
+
+    document.getElementById('game-kicker').textContent = buildGameKicker(setup, homeName, awayName);
+    document.getElementById('home-abbr').textContent = homeAbbr;
+    document.getElementById('home-name').textContent = homeName;
+    document.getElementById('home-score').textContent = state.SCORE_HOME || 0;
+    document.getElementById('away-abbr').textContent = awayAbbr;
+    document.getElementById('away-name').textContent = awayName;
+    document.getElementById('away-score').textContent = state.SCORE_AWAY || 0;
+
+    renderMatchupContext(setup);
+    renderTeamRecord('home-record', setup.HOME_RECORD);
+    renderTeamRecord('away-record', setup.AWAY_RECORD);
+    renderTeamTimeouts('home-timeouts', state.HOME_TIMEOUTS, 'home');
+    renderTeamTimeouts('away-timeouts', state.AWAY_TIMEOUTS, 'away');
+    document.getElementById('period').textContent = formatQuarter(state.QUARTER);
+    refreshLiveClock();
+
+    document.getElementById('home-card').classList.toggle('active', possSide === 'home');
+    document.getElementById('away-card').classList.toggle('active', possSide === 'away');
+    document.getElementById('home-possession').style.display = 'none';
+    document.getElementById('away-possession').style.display = 'none';
+
+
+    document.getElementById('status-line').textContent = buildStatusLine(displayState, setup, possSide);
+
+    const downText = buildSituationDownText(displayState);
+    const ballOnText = buildBallOnText(displayState, setup, possSide);
+    const driveText = buildSituationDriveText(displayState);
+    document.getElementById('situation-down').textContent = downText;
+    document.getElementById('situation-ball').textContent = ballOnText;
+    document.getElementById('situation-drive').textContent = driveText;
+    renderPeriodStateBanner(state);
+    renderCurrentDriveCard(displayState, setup, possSide, data.driveLog || []);
+    refreshUpdatedText();
+
+    renderField(displayState, setup, possSide, ballOnText, data.recentPlays || [], data.driveLog || []);
+    maybeTriggerFieldCelebration(data.recentPlays || [], setup);
+    renderLastPlay(data.recentPlays || []);
+    renderDrivePlayByPlay(data.playByPlay || [], setup);
+    renderScoring(data.scoringLog || [], setup);
+    renderQuarterScores(data.quarterScores || {}, setup);
+    renderLeaders(data.leadersByTeam || {home:[], away:[]}, setup);
+    renderBoxScore(data.boxScore || {}, setup);
+    renderTeamStats(data.teamStats || {}, setup);
+
+    if (localClockTimer) clearInterval(localClockTimer);
+    localClockTimer = setInterval(refreshLiveClock, 1000);
+  }
+
+
+
+  function renderTeamTimeouts(id, remaining, side) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const count = Math.max(0, Math.min(3, num(remaining, 3)));
+    const dots = [0,1,2].map(i => `<span class="timeout-dot ${i < count ? 'live ' + side : ''}"></span>`).join('');
+    el.innerHTML = `<span class="timeout-label">TO</span><span class="timeout-dots">${dots}</span>`;
+    el.setAttribute('aria-label', `${side === 'home' ? 'Home' : 'Away'} timeouts remaining: ${count}`);
+  }
+
+  function renderMatchupContext(setup) {
+    const kicker = document.getElementById('game-kicker');
+    const line = document.getElementById('matchup-context-line');
+    if (!kicker || !line) return;
+
+    const label = String(setup.GAME_LABEL || '').trim();
+    kicker.textContent = label || 'Football GameCast — Live';
+
+    const parts = [
+      String(setup.GAME_WEEK || '').trim(),
+      String(setup.VENUE || '').trim(),
+    ].filter(Boolean);
+
+    if (!parts.length) {
+      line.style.display = 'none';
+      line.innerHTML = '';
+      return;
+    }
+
+    line.style.display = 'flex';
+    line.innerHTML = parts.map(part => `<span class="matchup-context-chip">${esc(part)}</span>`).join('');
+  }
+
+  function renderTeamRecord(id, recordValue) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const record = String(recordValue || '').trim();
+    if (!record) {
+      el.style.display = 'none';
+      el.textContent = '';
+      return;
+    }
+    el.style.display = 'block';
+    el.textContent = `(${record})`;
+  }
+
+  function refreshUpdatedText() {
+    const el = document.getElementById('live-updated-text');
+    if (!el) return;
+    const sec = Math.max(0, Math.floor((Date.now() - lastDataRefreshMs) / 1000));
+    if (sec < 2) {
+      el.textContent = 'Updated just now';
+    } else if (sec < 60) {
+      el.textContent = `Updated ${sec}s ago`;
+    } else {
+      const min = Math.floor(sec / 60);
+      el.textContent = `Updated ${min}m ago`;
+    }
+  }
+
+  function renderPeriodStateBanner(state) {
+    const banner = document.getElementById('period-state-banner');
+    const title = document.getElementById('period-state-title');
+    const sub = document.getElementById('period-state-sub');
+    if (!banner || !title || !sub) return;
+
+    const running = String(state.CLOCK_RUNNING).toLowerCase() === 'true' || state.CLOCK_RUNNING === true;
+    const seconds = num(state.CLOCK_SECONDS, parseClockToSeconds(state.CLOCK));
+    const quarter = parseInt(state.QUARTER, 10) || 1;
+
+    if (running || seconds > 0) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    let statusTitle = '';
+    let statusSub = '';
+    if (quarter === 1) {
+      statusTitle = 'End of 1st Quarter';
+      statusSub = 'The second quarter will begin shortly.';
+    } else if (quarter === 2) {
+      statusTitle = 'Halftime';
+      statusSub = 'Teams are in the break before the third quarter.';
+    } else if (quarter === 3) {
+      statusTitle = 'End of 3rd Quarter';
+      statusSub = 'The fourth quarter will begin shortly.';
+    } else if (quarter >= 4) {
+      statusTitle = 'Final';
+      statusSub = 'The game clock has reached zero.';
+    }
+
+    if (!statusTitle) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    title.textContent = statusTitle;
+    sub.textContent = statusSub;
+    banner.style.display = 'block';
+  }
+
+  function renderCurrentDriveCard(state, setup, possSide, driveLog) {
+    const logo = document.getElementById('current-drive-logo');
+    const title = document.getElementById('current-drive-title');
+    const sub = document.getElementById('current-drive-sub');
+    const plays = document.getElementById('current-drive-plays');
+    const yards = document.getElementById('current-drive-yards');
+    const start = document.getElementById('current-drive-start');
+    if (!logo || !title || !sub || !plays || !yards || !start) return;
+
+    const driveNum = String(state.DRIVE_NUM || '').trim();
+    const drives = Array.isArray(driveLog) ? driveLog : [];
+    const currentDrive = drives.slice().reverse().find(d => String(d.num || '') === driveNum) || drives.slice(-1)[0] || null;
+
+    const teamName = state.POSSESSION || (possSide === 'away'
+      ? (setup.AWAY_TEAM_NAME || setup.AWAY_ABBR || 'Away')
+      : (setup.HOME_TEAM_NAME || setup.HOME_ABBR || 'Home'));
+    const abbreviation = teamAbbr(possSide, setup);
+    logo.innerHTML = teamLogoMark(possSide, setup, abbreviation);
+
+    title.textContent = `${teamName || abbreviation} Drive${driveNum ? ' #' + driveNum : ''}`;
+
+    const startSpot = currentDrive && currentDrive.startYardLine ? currentDrive.startYardLine : '—';
+    const startMoment = currentDrive && (currentDrive.qtr || currentDrive.clockStart)
+      ? `${currentDrive.qtr ? formatQuarter(currentDrive.qtr) : ''}${currentDrive.clockStart ? ' · ' + currentDrive.clockStart : ''}`
+      : '';
+    const nextAction = String(state.NEXT_ACTION || 'NORMAL').toUpperCase();
+
+    let status = 'Drive in progress';
+    if (nextAction === 'PAT') status = 'Touchdown scored — conversion pending';
+    if (nextAction === 'KICKOFF') status = 'Kickoff pending';
+    if (!driveNum && !currentDrive) status = 'Awaiting the first possession';
+
+    sub.textContent = `${status}${startMoment ? ' · Started ' + startMoment : ''}`;
+    plays.textContent = state.DRIVE_PLAYS || (currentDrive ? currentDrive.plays || 0 : 0);
+    yards.textContent = state.DRIVE_YARDS || (currentDrive ? currentDrive.yards || 0 : 0);
+    start.textContent = startSpot;
+  }
+
+  function applyBranding(setup, homeAbbr, awayAbbr) {
+    const root = document.documentElement;
+    root.style.setProperty('--home-primary', safeHex(setup.HOME_PRIMARY_COLOR, '#8B1E24'));
+    root.style.setProperty('--home-secondary', safeHex(setup.HOME_SECONDARY_COLOR, '#FFC72C'));
+    root.style.setProperty('--away-primary', safeHex(setup.AWAY_PRIMARY_COLOR, '#1F4E79'));
+    root.style.setProperty('--away-secondary', safeHex(setup.AWAY_SECONDARY_COLOR, '#FFFFFF'));
+
+    setLogo('home-logo', 'home-logo-fallback', setup.HOME_LOGO_URL, homeAbbr);
+    setLogo('away-logo', 'away-logo-fallback', setup.AWAY_LOGO_URL, awayAbbr);
+  }
+
+  function safeHex(value, fallback) {
+    const raw = String(value || '').trim();
+    return /^#[0-9A-Fa-f]{6}$/.test(raw) ? raw : fallback;
+  }
+
+  function setLogo(imgId, fallbackId, url, fallbackText) {
+    const img = document.getElementById(imgId);
+    const fb = document.getElementById(fallbackId);
+    const clean = String(url || '').trim();
+    if (!img || !fb) return;
+    fb.textContent = String(fallbackText || '?').slice(0, 2);
+    if (!clean) {
+      img.removeAttribute('src');
+      img.style.display = 'none';
+      fb.style.display = 'flex';
+      return;
+    }
+    img.onload = () => { img.style.display = 'block'; fb.style.display = 'none'; };
+    img.onerror = () => { img.style.display = 'none'; fb.style.display = 'flex'; };
+    img.src = clean;
+  }
+
+
+  function buildGameKicker(setup, homeName, awayName) {
+    const date = setup.GAME_DATE ? safeDateLabel(setup.GAME_DATE) : '';
+    return [date, `${homeName} vs ${awayName}`, 'Live GameCast'].filter(Boolean).join(' · ');
+  }
+
+  function safeDateLabel(value) {
+    const raw = String(value || '');
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return raw;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function buildStatusLine(state, setup, possSide) {
+    if (state.NEXT_ACTION === 'PAT') return 'Touchdown scored · PAT / 2PT pending';
+    if (state.NEXT_ACTION === 'KICKOFF') return 'Kickoff pending';
+    const abbr = teamAbbr(possSide, setup);
+    return possSide ? `${abbr} possession · ${ordinal(state.DOWN)} & ${state.DISTANCE || '—'}` : 'Awaiting possession';
+  }
+
+  function buildBallOnText(state, setup, possSide) {
+    const yard = state.YARD_LINE === '' || state.YARD_LINE === null || state.YARD_LINE === undefined ? '—' : state.YARD_LINE;
+    const side = String(state.YARD_LINE_SIDE || '').toUpperCase();
+    if (!possSide) return yard === '—' ? '—' : String(yard);
+    if (side === 'OWN') return `${teamAbbr(possSide, setup)} ${yard}`;
+    if (side === 'OPP') return `${teamAbbr(possSide === 'home' ? 'away' : 'home', setup)} ${yard}`;
+    return String(yard);
+  }
+
+  function renderField(state, setup, possSide, labelText, recentPlays, driveLog) {
+    const homeAbbr = setup.HOME_ABBR || 'HOME';
+    const awayAbbr = setup.AWAY_ABBR || 'AWAY';
+    const homeName = setup.HOME_TEAM_NAME || homeAbbr;
+    const awayName = setup.AWAY_TEAM_NAME || awayAbbr;
+    document.getElementById('endzone-home-name').textContent = homeName;
+    document.getElementById('endzone-away-name').textContent = awayName;
+
+    applyFieldPossessionVisual(setup, possSide);
+
+    const abs = absoluteFieldSpot(state, possSide);
+    const ballPct = spotToPercent(abs);
+    const dist = Math.max(0, num(state.DISTANCE, 10));
+    const firstDownAbs = firstDownSpot(abs, dist, possSide);
+    const firstPct = spotToPercent(firstDownAbs);
+
+    const firstDownLine = document.getElementById('firstdown-line');
+    const nextAction = String(state.NEXT_ACTION || 'NORMAL').toUpperCase();
+    firstDownLine.style.left = firstPct + '%';
+    firstDownLine.style.display = nextAction === 'NORMAL' ? 'block' : 'none';
+
+    const redZone = isRedZone(state);
+    document.getElementById('situation-down').classList.toggle('redzone', redZone);
+    document.getElementById('situation-ball').classList.toggle('redzone', redZone);
+
+    const ball = document.getElementById('ball-marker');
+    const logoMarker = document.getElementById('possession-logo-marker');
+    ball.classList.remove('hidden');
+
+    const latestPlay = (recentPlays || [])[0];
+    const playKey = latestPlay ? `${latestPlay.playNum || ''}|${latestPlay.qtr || ''}|${latestPlay.clock || ''}|${latestPlay.description || ''}` : null;
+    const latestPlayType = String(latestPlay?.playType || '').toUpperCase();
+    const latestResult = String(latestPlay?.result || '').toUpperCase();
+    const samePlayAlreadyAnimated = !!playKey && playKey === lastAnimatedPlayKey;
+
+    const normalOffensiveGraphic = !!latestPlay &&
+      ['RUSH','PASS'].includes(latestPlayType) &&
+      !latestPlay.isTurnover &&
+      nextAction === 'NORMAL';
+
+    const touchdownGraphicOnce = !!latestPlay &&
+      ['RUSH','PASS'].includes(latestPlayType) &&
+      latestResult === 'TD' &&
+      !samePlayAlreadyAnimated;
+
+    const interceptionGraphicOnce = !!latestPlay &&
+      latestPlayType === 'PASS' &&
+      latestResult === 'INT' &&
+      !samePlayAlreadyAnimated;
+
+    const specialGraphicOnce = !!latestPlay &&
+      ['PAT','PAT_2PT','FG','KICKOFF','PUNT'].includes(latestPlayType) &&
+      !samePlayAlreadyAnimated;
+
+    const penaltyGraphicOnce = !!latestPlay &&
+      latestPlayType === 'PENALTY' &&
+      latestResult !== 'PENALTY_DECLINED' &&
+      !samePlayAlreadyAnimated;
+
+    const canShowLastPlay = normalOffensiveGraphic || touchdownGraphicOnce || interceptionGraphicOnce || specialGraphicOnce || penaltyGraphicOnce;
+
+    let graphic = null;
+    if (canShowLastPlay) graphic = buildLastPlayGraphic(latestPlay, state, setup, possSide, ballPct);
+
+    const canShowDriveTrail = normalOffensiveGraphic || touchdownGraphicOnce;
+    if (canShowDriveTrail) {
+      drawCurrentDriveTrail(state, setup, possSide, driveLog, graphic ? graphic.startPct : ballPct);
+    } else {
+      clearCurrentDriveTrail();
+    }
+
+    if (graphic) {
+      const animate = fieldHasRenderedOnce && playKey !== lastAnimatedPlayKey;
+      const animationStillRunning = activeMarkerAnimationPlayKey === playKey && !!possessionMarkerAnimationFrame;
+      if (!animationStillRunning || animate) drawLastPlayGraphic(graphic, animate, playKey);
+
+      const visualOnly = graphic.visualOnly === true;
+      const finalPct = animate ? graphic.endPct : (Number.isFinite(ballPct) ? ballPct : graphic.endPct);
+
+      if (animate && !visualOnly && (graphic.kind === 'kickoff-kick' || graphic.kind === 'punt-kick')) {
+        animateKickReturnMarkerSequence(graphic, setup, playKey);
+      } else if (animate && !visualOnly && graphic.kind === 'interception-pass') {
+        animateInterceptionMarkerSequence(graphic, setup, playKey);
+      } else if (animate && !visualOnly) {
+        ball.classList.remove('hidden');
+        ball.style.left = graphic.startPct + '%';
+        ball.style.top = '58%';
+        logoMarker.style.left = graphic.startPct + '%';
+        animatePossessionMarkerAlongRoute(1150, finalPct, playKey);
+      } else if (animationStillRunning) {
+        // A refresh landed while the play animation is still running.
+        // Do not snap the marker backward or cancel the animation.
+      } else {
+        cancelPossessionMarkerAnimation();
+        ball.classList.remove('hidden');
+        ball.style.left = finalPct + '%';
+        ball.style.top = '58%';
+        logoMarker.style.left = finalPct + '%';
+      }
+    } else {
+      clearLastPlayGraphic();
+      ball.classList.remove('hidden');
+      ball.style.left = ballPct + '%';
+      ball.style.top = '58%';
+      logoMarker.style.left = ballPct + '%';
+    }
+
+    if (playKey) lastAnimatedPlayKey = playKey;
+    fieldHasRenderedOnce = true;
+  }
+
+  function isRedZone(state) {
+    return String(state.YARD_LINE_SIDE || '').toUpperCase() === 'OPP' && num(state.YARD_LINE, 99) <= 20;
+  }
+
+  function updatePossessionLogo(setup, possSide) {
+    const img = document.getElementById('possession-logo-img');
+    const fb = document.getElementById('possession-logo-fallback');
+    if (!img || !fb) return;
+    const url = String(possSide === 'away' ? (setup.AWAY_LOGO_URL || '') : (setup.HOME_LOGO_URL || '')).trim();
+    const abbr = teamAbbr(possSide || 'home', setup) || '?';
+    fb.textContent = String(abbr).slice(0, 3);
+    if (!url) {
+      img.removeAttribute('src');
+      img.style.display = 'none';
+      fb.style.display = 'flex';
+      return;
+    }
+    img.onload = () => { img.style.display = 'block'; fb.style.display = 'none'; };
+    img.onerror = () => { img.style.display = 'none'; fb.style.display = 'flex'; };
+    img.src = url;
+  }
+
+  function drawCurrentDriveTrail(state, setup, possSide, driveLog, playStartPct) {
+    const trail = document.getElementById('drive-trail');
+    if (!trail) return;
+    const driveNum = String(state.DRIVE_NUM || '');
+    const currentDrive = (driveLog || []).slice().reverse().find(d => String(d.num || '') === driveNum) || (driveLog || []).slice(-1)[0];
+    const startPct = currentDrive ? parseBallOnToPercent(currentDrive.startYardLine, setup) : NaN;
+    const endPct = Number.isFinite(playStartPct) ? playStartPct : NaN;
+    if (!Number.isFinite(startPct) || !Number.isFinite(endPct) || Math.abs(startPct - endPct) < .3) {
+      trail.setAttribute('d', '');
+      trail.classList.remove('visible');
+      return;
+    }
+    trail.setAttribute('d', `M ${startPct} 58 L ${endPct} 58`);
+    trail.classList.add('visible');
+  }
+
+  function buildLastPlayGraphic(play, state, setup, possSide, currentBallPct) {
+    const playType = String(play.playType || '').toUpperCase();
+    const result = String(play.result || '').toUpperCase();
+    const offenseSide = play.teamSide || sideForTeam(play.team, setup) || possSide || 'home';
+    const direction = offenseSide === 'away' ? -1 : 1;
+    const y = 58;
+
+    if (playType === 'PAT') {
+      const isGood = result === 'PAT_GOOD';
+      const isBad = result === 'PAT_FAIL' || result === 'BLOCKED';
+      if (!isGood && !isBad) return null;
+      const startAbs = offenseSide === 'away' ? 3 : 97;
+      const startPct = spotToPercent(startAbs);
+      const endPct = offenseSide === 'away' ? fullCanvasPercent(-18) : fullCanvasPercent(118);
+      const apexX = (startPct + endPct) / 2;
+      return {
+        kind: 'pat-kick',
+        startPct,
+        endPct,
+        d: `M ${startPct} ${y} Q ${apexX} 20 ${endPct} 42`,
+        endX: endPct,
+        endY: 42,
+        resultMarker: isGood ? 'check' : 'x',
+      };
+    }
+
+    if (playType === 'FG') {
+      const isGood = result === 'FG';
+      const isBad = result === 'FG_MISS' || result === 'BLOCKED';
+      if (!isGood && !isBad) return null;
+      const startAbs = parseBallOnToAbsolute(play.ballOn, setup);
+      const startPct = spotToPercent(startAbs);
+      if (!Number.isFinite(startPct)) return null;
+      const endPct = offenseSide === 'away' ? fullCanvasPercent(-18) : fullCanvasPercent(118);
+      const apexX = (startPct + endPct) / 2;
+      return {
+        kind: 'fg-kick',
+        startPct,
+        endPct,
+        d: `M ${startPct} ${y} Q ${apexX} 18 ${endPct} 42`,
+        endX: endPct,
+        endY: 42,
+        resultMarker: isGood ? 'check' : 'x',
+      };
+    }
+
+    if (playType === 'PAT_2PT') {
+      const isGood = result === '2PT_GOOD';
+      const isBad = result === '2PT_FAIL';
+      if (!isGood && !isBad) return null;
+      const startAbs = offenseSide === 'away' ? 3 : 97;
+      const startPct = spotToPercent(startAbs);
+      const endPct = offenseSide === 'away'
+        ? fullCanvasPercent(-7)
+        : fullCanvasPercent(107);
+      return {
+        kind: 'twopoint-run',
+        startPct,
+        endPct,
+        d: `M ${startPct} ${y} L ${endPct} ${y}`,
+        endX: endPct,
+        endY: y,
+        resultMarker: isGood ? 'check' : 'x',
+      };
+    }
+
+    if (playType === 'KICKOFF' || playType === 'PUNT') {
+      const startAbs = playType === 'KICKOFF'
+        ? (offenseSide === 'away' ? 65 : 35)
+        : parseBallOnToAbsolute(play.ballOn, setup);
+      const startPct = spotToPercent(startAbs);
+      if (!Number.isFinite(startPct)) return null;
+
+      let catchAbs = actualTeamSpotToAbsolute(play.receivedAtTeam, play.receivedAtYardLine, setup);
+      if (!Number.isFinite(catchAbs)) catchAbs = offenseSide === 'away' ? 0 : 100;
+
+      const catchPct = spotToPercent(Math.max(0, Math.min(100, catchAbs)));
+      const apexX = (startPct + catchPct) / 2;
+      const apexY = Math.max(22, 42 - Math.min(Math.abs(catchPct - startPct) * .45, 18));
+      const returnEndAbs = Math.max(0, Math.min(100, catchAbs - direction * num(play.returnYards, 0)));
+      const returnEndPct = spotToPercent(returnEndAbs);
+
+      return {
+        kind: playType === 'KICKOFF' ? 'kickoff-kick' : 'punt-kick',
+        startPct,
+        catchPct,
+        endPct: returnEndPct,
+        returnEndPct,
+        d: `M ${startPct} ${y} Q ${apexX} ${apexY} ${catchPct} ${y}`,
+        returnD: num(play.returnYards, 0) > 0 || result === 'RETURN_TD'
+          ? `M ${catchPct} ${y} L ${returnEndPct} ${y}`
+          : '',
+        endX: returnEndPct,
+        endY: y,
+        kickSide: offenseSide,
+        returnSide: offenseSide === 'away' ? 'home' : 'away',
+      };
+    }
+
+    // Interception: show a real pass arc first, then let the possession
+    // flip and return animation take over.
+    if (playType === 'PASS' && result === 'INT') {
+      const startAbs = parseBallOnToAbsolute(play.ballOn, setup);
+      const startPct = spotToPercent(startAbs);
+      if (!Number.isFinite(startAbs) || !Number.isFinite(startPct)) return null;
+
+      const visualPickYards = Math.max(10, Math.min(24, num(play.dist, 10) || 12));
+      const pickAbs = Math.max(0, Math.min(100, startAbs + direction * visualPickYards));
+      const pickPct = spotToPercent(pickAbs);
+
+      let finalAbs = actualTeamSpotToAbsolute(play.newPossessionSide, play.newPossessionYardLine, setup);
+      if (!Number.isFinite(finalAbs)) finalAbs = pickAbs;
+
+      const returnEndPct = spotToPercent(Math.max(0, Math.min(100, finalAbs)));
+      const apexX = (startPct + pickPct) / 2;
+      const apexY = Math.max(16, 37 - Math.min(Math.abs(pickPct - startPct) * .58, 21));
+
+      return {
+        kind: 'interception-pass',
+        startPct,
+        catchPct: pickPct,
+        endPct: returnEndPct,
+        returnEndPct,
+        d: `M ${startPct} ${y} Q ${apexX} ${apexY} ${pickPct} ${y}`,
+        returnD: Math.abs(returnEndPct - pickPct) > .25
+          ? `M ${pickPct} ${y} L ${returnEndPct} ${y}`
+          : '',
+        endX: returnEndPct,
+        endY: y,
+        pickSide: offenseSide === 'away' ? 'home' : 'away',
+        offenseSide,
+      };
+    }
+
+    if (playType === 'PENALTY' && result !== 'PENALTY_DECLINED') {
+      const startAbs = parseBallOnToAbsolute(play.ballOn, setup);
+      const startPct = spotToPercent(startAbs);
+      if (!Number.isFinite(startAbs) || !Number.isFinite(startPct)) return null;
+
+      const penYards = Math.max(0, Math.abs(num(play.penYards, 0)));
+      const movement = String(play.penaltyMove || 'NO_MOVE').toUpperCase();
+      let signedMove = 0;
+      if (movement === 'OFFENSE_FORWARD') signedMove = penYards;
+      if (movement === 'OFFENSE_BACK') signedMove = -penYards;
+
+      if (!signedMove) return null;
+
+      const endAbs = Math.max(0, Math.min(100, startAbs + signedMove));
+      const endPct = spotToPercent(endAbs);
+
+      return {
+        kind: 'penalty-move',
+        startPct,
+        endPct,
+        d: `M ${startPct} ${y} L ${endPct} ${y}`,
+        endX: endPct,
+        endY: y,
+      };
+    }
+
+    const startAbs = parseBallOnToAbsolute(play.ballOn, setup);
+    const startPct = spotToPercent(startAbs);
+    if (!Number.isFinite(startAbs) || !Number.isFinite(startPct)) return null;
+    const playYards = num(play.yards, 0);
+    const derivedEndAbs = Math.max(0, Math.min(100, startAbs + direction * playYards));
+    const derivedEndPct = spotToPercent(derivedEndAbs);
+    const scoringEndAbs = offenseSide === 'away' ? 0 : 100;
+    const tdEndPct = spotToPercent(scoringEndAbs);
+    const endPct = result === 'TD' ? tdEndPct : derivedEndPct;
+
+    if (playType === 'RUSH') {
+      return {
+        kind: 'run',
+        startPct,
+        endPct,
+        d: `M ${startPct} ${y} L ${endPct} ${y}`,
+        endX: endPct,
+        endY: y,
+      };
+    }
+
+    if (playType === 'PASS') {
+      if (result === 'INC') {
+        const visualTargetYards = Math.max(4, Math.min(12, num(play.dist, 10)));
+        const visualTargetAbs = Math.max(0, Math.min(100, startAbs + direction * visualTargetYards));
+        const targetPct = spotToPercent(visualTargetAbs);
+        const apexX = (startPct + targetPct) / 2;
+        return {
+          kind: 'incomplete-pass',
+          startPct,
+          endPct: targetPct,
+          d: `M ${startPct} ${y} Q ${apexX} 28 ${targetPct} ${y}`,
+          endX: targetPct,
+          endY: y,
+          resultMarker: 'x',
+        };
+      }
+
+      if (['COMPLETE', 'FIRST_DOWN', 'TD'].includes(result) || result === '') {
+        const apexX = (startPct + endPct) / 2;
+        const distance = Math.abs(endPct - startPct);
+        const apexY = Math.max(22, 42 - Math.min(distance * .45, 18));
+        return {
+          kind: 'complete-pass',
+          startPct,
+          endPct,
+          d: `M ${startPct} ${y} Q ${apexX} ${apexY} ${endPct} ${y}`,
+          endX: endPct,
+          endY: y,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function cancelPossessionMarkerAnimation() {
+    if (possessionMarkerAnimationFrame) {
+      cancelAnimationFrame(possessionMarkerAnimationFrame);
+      possessionMarkerAnimationFrame = null;
+    }
+    activeMarkerAnimationPlayKey = null;
+  }
+
+  function animateMarkerAlongSvgPath(pathId, durationMs, finalPct, playKey, onComplete) {
+    const path = document.getElementById(pathId);
+    const ball = document.getElementById('ball-marker');
+    const logoMarker = document.getElementById('possession-logo-marker');
+    if (!path || !ball || !logoMarker) {
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+
+    cancelPossessionMarkerAnimation();
+
+    let totalLength = 0;
+    try { totalLength = Math.max(1, path.getTotalLength()); }
+    catch (err) { totalLength = 1; }
+
+    const startMs = performance.now();
+    activeMarkerAnimationPlayKey = playKey || null;
+
+    const tick = now => {
+      const rawProgress = Math.max(0, Math.min(1, (now - startMs) / durationMs));
+      const eased = rawProgress < .5
+        ? 2 * rawProgress * rawProgress
+        : 1 - Math.pow(-2 * rawProgress + 2, 2) / 2;
+      const point = path.getPointAtLength(totalLength * eased);
+
+      ball.style.left = point.x.toFixed(3) + '%';
+      ball.style.top = point.y.toFixed(3) + '%';
+      logoMarker.style.left = point.x.toFixed(3) + '%';
+
+      if (rawProgress < 1) {
+        possessionMarkerAnimationFrame = requestAnimationFrame(tick);
+      } else {
+        possessionMarkerAnimationFrame = null;
+        activeMarkerAnimationPlayKey = null;
+        ball.style.left = finalPct + '%';
+        ball.style.top = '58%';
+        logoMarker.style.left = finalPct + '%';
+        if (typeof onComplete === 'function') onComplete();
+      }
+    };
+
+    possessionMarkerAnimationFrame = requestAnimationFrame(tick);
+  }
+
+  function animatePossessionMarkerAlongRoute(durationMs, finalPct, playKey, onComplete) {
+    animateMarkerAlongSvgPath('play-route', durationMs, finalPct, playKey, onComplete);
+  }
+
+  function animateKickReturnMarkerSequence(graphic, setup, playKey) {
+    const ball = document.getElementById('ball-marker');
+    const logoMarker = document.getElementById('possession-logo-marker');
+    if (!ball || !logoMarker) return;
+
+    applyFieldPossessionVisual(setup, graphic.kickSide || 'home');
+    ball.classList.remove('hidden');
+    ball.style.left = graphic.startPct + '%';
+    ball.style.top = '58%';
+    logoMarker.style.left = graphic.startPct + '%';
+
+    animateMarkerAlongSvgPath('play-route', 950, graphic.catchPct, playKey, () => {
+      applyFieldPossessionVisual(setup, graphic.returnSide || 'away');
+
+      if (graphic.returnD) {
+        animateMarkerAlongSvgPath('kick-return-route', 900, graphic.returnEndPct, playKey);
+      } else {
+        ball.style.left = graphic.endPct + '%';
+        ball.style.top = '58%';
+        logoMarker.style.left = graphic.endPct + '%';
+      }
+    });
+  }
+
+  function animateInterceptionMarkerSequence(graphic, setup, playKey) {
+    const ball = document.getElementById('ball-marker');
+    const logoMarker = document.getElementById('possession-logo-marker');
+    const returnPath = document.getElementById('kick-return-route');
+    if (!ball || !logoMarker) return;
+
+    // Step 1: offense owns the visible pass attempt.
+    applyFieldPossessionVisual(setup, graphic.offenseSide || 'home');
+    ball.classList.remove('hidden');
+    ball.style.left = graphic.startPct + '%';
+    ball.style.top = '58%';
+    logoMarker.style.left = graphic.startPct + '%';
+
+    // Step 2: animate the pass arc clearly to the interception point.
+    animateMarkerAlongSvgPath('play-route', 1180, graphic.catchPct, playKey, () => {
+      // Small beat so the "picked off" point visually registers.
+      setTimeout(() => {
+        // Step 3: possession flips at the pick point.
+        applyFieldPossessionVisual(setup, graphic.pickSide || 'away');
+        ball.style.left = graphic.catchPct + '%';
+        ball.style.top = '58%';
+        logoMarker.style.left = graphic.catchPct + '%';
+
+        // Step 4: if there is a return, animate return line and tracker.
+        if (graphic.returnD && returnPath) {
+          returnPath.classList.remove('visible');
+          returnPath.classList.add('animate');
+          animateMarkerAlongSvgPath('kick-return-route', 980, graphic.returnEndPct, playKey);
+        } else {
+          ball.style.left = graphic.endPct + '%';
+          ball.style.top = '58%';
+          logoMarker.style.left = graphic.endPct + '%';
+        }
+      }, 250);
+    });
+  }
+
+
+
+
+
+  function clearRouteFadeTimer() {
+    if (routeFadeTimer) {
+      clearTimeout(routeFadeTimer);
+      routeFadeTimer = null;
+    }
+  }
+
+  function scheduleRouteFade(playKey) {
+    clearRouteFadeTimer();
+    fadedRoutePlayKey = null;
+    routeFadeTimer = setTimeout(() => {
+      const path = document.getElementById('play-route');
+      if (!path) return;
+      path.classList.add('settled-drive');
+      fadedRoutePlayKey = playKey;
+      routeFadeTimer = null;
+    }, 1550);
+  }
+
+  function drawLastPlayGraphic(graphic, animate, playKey) {
+    const path = document.getElementById('play-route');
+    const returnPath = document.getElementById('kick-return-route');
+    const start = document.getElementById('play-start-dot');
+    const dot = document.getElementById('play-end-dot');
+    const x = document.getElementById('play-end-x');
+    const check = document.getElementById('play-end-check');
+    if (!path || !start || !dot || !x || !check) return;
+
+    path.setAttribute('d', graphic.d);
+    path.classList.remove('settled-drive');
+    path.classList.add(graphic.kind);
+
+    start.setAttribute('cx', graphic.startPct);
+    start.setAttribute('cy', 58);
+    dot.setAttribute('cx', graphic.endX);
+    dot.setAttribute('cy', graphic.endY);
+    x.setAttribute('transform', `translate(${graphic.endX} ${graphic.endY})`);
+    check.setAttribute('transform', `translate(${graphic.endX} ${graphic.endY})`);
+
+    path.classList.remove('animate', 'visible');
+    start.classList.remove('animate', 'visible');
+    dot.classList.remove('animate', 'visible');
+    x.classList.remove('animate', 'visible');
+    check.classList.remove('animate', 'visible');
+
+    const showX = graphic.resultMarker === 'x' || graphic.kind === 'incomplete-pass';
+    const showCheck = graphic.resultMarker === 'check';
+
+    dot.style.display = 'none';
+    start.style.display = 'none';
+    x.style.display = showX ? '' : 'none';
+    check.style.display = showCheck ? '' : 'none';
+
+    const length = safePathLength(path);
+    path.style.strokeDasharray = length;
+    path.style.strokeDashoffset = animate ? length : 0;
+    path.style.setProperty('--route-length', length);
+
+    if (returnPath) {
+      returnPath.setAttribute('d', graphic.returnD || '');
+      returnPath.classList.remove('animate', 'visible', 'interception-return');
+      if (graphic.kind === 'interception-pass') {
+        returnPath.classList.add('interception-return');
+      }
+      if (graphic.returnD) {
+        const len = safePathLength(returnPath);
+        returnPath.style.strokeDasharray = len;
+        returnPath.style.strokeDashoffset = animate ? len : 0;
+        returnPath.style.setProperty('--return-route-length', len);
+      }
+    }
+
+    if (animate) {
+      void path.getBoundingClientRect();
+      path.classList.add('animate');
+      if (showX) x.classList.add('animate');
+      if (showCheck) check.classList.add('animate');
+      if (returnPath && graphic.returnD && graphic.kind !== 'interception-pass') returnPath.classList.add('animate');
+
+      const fadeToDrive = ['run','complete-pass'].includes(graphic.kind);
+      if (fadeToDrive) scheduleRouteFade(playKey);
+    } else {
+      path.classList.add('visible');
+      if (fadedRoutePlayKey === playKey) path.classList.add('settled-drive');
+      if (showX) x.classList.add('visible');
+      if (showCheck) check.classList.add('visible');
+      if (returnPath && graphic.returnD) returnPath.classList.add('visible');
+    }
+  }
+
+  function clearLastPlayGraphic() {
+    cancelPossessionMarkerAnimation();
+    clearRouteFadeTimer();
+    fadedRoutePlayKey = null;
+    const path = document.getElementById('play-route');
+    const returnPath = document.getElementById('kick-return-route');
+    const start = document.getElementById('play-start-dot');
+    const dot = document.getElementById('play-end-dot');
+    const x = document.getElementById('play-end-x');
+    const check = document.getElementById('play-end-check');
+    if (path) { path.setAttribute('d', ''); path.classList.remove('animate', 'visible', 'settled-drive', 'pat-kick', 'fg-kick', 'kickoff-kick', 'punt-kick', 'twopoint-run', 'interception-pass', 'penalty-move'); }
+    if (returnPath) { returnPath.setAttribute('d', ''); returnPath.classList.remove('animate', 'visible', 'interception-return'); }
+    if (start) { start.classList.remove('animate', 'visible'); start.style.display = 'none'; }
+    if (dot) { dot.classList.remove('animate', 'visible'); dot.style.display = 'none'; }
+    if (x) { x.classList.remove('animate', 'visible'); x.style.display = 'none'; }
+    if (check) { check.classList.remove('animate', 'visible'); check.style.display = 'none'; }
+  }
+
+  function safePathLength(path) {
+    try { return Math.max(1, path.getTotalLength()); }
+    catch (err) { return 100; }
+  }
+
+  function parseBallOnToAbsolute(ballOn, setup) {
+    const raw = String(ballOn || '').trim();
+    if (!raw) return NaN;
+    if (/^50$/.test(raw)) return 50;
+    const m = raw.match(/^([A-Za-z0-9_-]+)\s+(\d{1,2}|50)$/);
+    if (!m) return NaN;
+    const abbr = m[1].toUpperCase();
+    const yard = Math.max(0, Math.min(50, Number(m[2])));
+    const homeAbbr = String(setup.HOME_ABBR || '').toUpperCase();
+    const awayAbbr = String(setup.AWAY_ABBR || '').toUpperCase();
+    if (abbr === homeAbbr) return yard;
+    if (abbr === awayAbbr) return 100 - yard;
+    return NaN;
+  }
+
+  function parseBallOnToPercent(ballOn, setup) {
+    const abs = parseBallOnToAbsolute(ballOn, setup);
+    return Number.isFinite(abs) ? spotToPercent(abs) : NaN;
+  }
+
+  function actualTeamSpotToAbsolute(teamName, yardLine, setup) {
+    const rawTeam = String(teamName || '').trim();
+    const yard = Math.max(0, Math.min(50, num(yardLine, 0)));
+    const homeNames = [setup.HOME_TEAM_NAME, setup.HOME_ABBR].map(v => String(v || '').trim()).filter(Boolean);
+    const awayNames = [setup.AWAY_TEAM_NAME, setup.AWAY_ABBR].map(v => String(v || '').trim()).filter(Boolean);
+    if (homeNames.includes(rawTeam)) return yard;
+    if (awayNames.includes(rawTeam)) return 100 - yard;
+    return NaN;
+  }
+
+  function fullCanvasPercent(absIncludingEndzones) {
+    // The graphic is based on a 120-yard field:
+    // -10 = back of left end zone, 110 = back of right end zone.
+    // PAT/FG arcs intentionally travel a little beyond those end lines
+    // so they visually read like kicks sailing through the uprights.
+    const extended = Math.max(-20, Math.min(120, num(absIncludingEndzones, 50)));
+    return ((extended + 10) / 120) * 100;
+  }
+
+  function canvasYardToPercent(absYardsIncludingEndzones) {
+    const clamped = Math.max(-10, Math.min(110, num(absYardsIncludingEndzones, 50)));
+    return ((clamped + 10) / 120) * 100;
+  }
+
+  function absoluteFromNewPossession(play, setup) {
+    const receivingSide = play.teamSide === 'home' ? 'away' : 'home';
+    const relSide = String(play.newPossessionSide || '').toUpperCase();
+    const yard = Number(play.newPossessionYardLine);
+    if (!relSide || !Number.isFinite(yard)) return NaN;
+
+    if (receivingSide === 'home') {
+      return relSide === 'OWN' ? yard : 100 - yard;
+    }
+    return relSide === 'OWN' ? 100 - yard : yard;
+  }
+
+  function absoluteFieldSpot(state, possSide) {
+    const yard = Math.max(0, Math.min(100, num(state.YARD_LINE, 50)));
+    const side = String(state.YARD_LINE_SIDE || 'OWN').toUpperCase();
+    if (possSide === 'home') {
+      return side === 'OPP' ? 100 - yard : yard;
+    }
+    if (possSide === 'away') {
+      return side === 'OPP' ? yard : 100 - yard;
+    }
+    return 50;
+  }
+
+  function firstDownSpot(abs, dist, possSide) {
+    if (possSide === 'away') return Math.max(0, abs - dist);
+    return Math.min(100, abs + dist);
+  }
+
+  function spotToPercent(abs) {
+    // Visual field is 120 yards wide: 10-yard end zone, 100-yard playing field, 10-yard end zone.
+    // Playing field therefore runs from 8.333333% to 91.666667% of the full graphic.
+    const normalized = Math.max(0, Math.min(100, num(abs, 50)));
+    return 8.333333 + (normalized * (100 / 120));
+  }
+
+  function clampPct(value) {
+    return Math.max(7, Math.min(93, num(value, 50)));
+  }
+
+
+  function celebrationLogoSource(side, setup) {
+    return side === 'away' ? String(setup.AWAY_LOGO_URL || '').trim() : String(setup.HOME_LOGO_URL || '').trim();
+  }
+
+  function maybeTriggerFieldCelebration(plays, setup) {
+    const play = (plays || [])[0];
+    const banner = document.getElementById('field-celebration');
+    const kick = document.getElementById('celebration-kick');
+    const word = document.getElementById('celebration-word');
+    const sub = document.getElementById('celebration-sub');
+    const leftLogo = document.getElementById('celebration-logo-left');
+    const rightLogo = document.getElementById('celebration-logo-right');
+    if (!banner || !word || !sub || !leftLogo || !rightLogo) return;
+
+    if (!play) {
+      banner.classList.remove('show', 'touchdown', 'pat', 'twopoint', 'interception', 'timeout', 'penalty', 'sticky');
+      if (kick) kick.classList.remove('show');
+      return;
+    }
+
+    const playType = String(play.playType || '').toUpperCase();
+    const result = String(play.result || '').toUpperCase();
+    const isTouchdown = result === 'TD' || result === 'RETURN_TD';
+    const isPatGood = playType === 'PAT' && result === 'PAT_GOOD';
+    const isPatBad = playType === 'PAT' && (result === 'PAT_FAIL' || result === 'BLOCKED');
+    const isTwoPointGood = playType === 'PAT_2PT' && result === '2PT_GOOD';
+    const isTwoPointBad = playType === 'PAT_2PT' && result === '2PT_FAIL';
+    const isFgGood = playType === 'FG' && result === 'FG';
+    const isFgBad = playType === 'FG' && (result === 'FG_MISS' || result === 'BLOCKED');
+    const isInterception = playType === 'PASS' && result === 'INT';
+    const isTimeout = playType === 'TIMEOUT' && result === 'TIMEOUT';
+    const isPenalty = playType === 'PENALTY';
+    const isConversionAttempt = playType === 'PAT' || playType === 'PAT_2PT';
+
+    if (!isTouchdown && !isPatGood && !isPatBad && !isTwoPointGood && !isTwoPointBad && !isFgGood && !isFgBad && !isInterception && !isTimeout && !isPenalty) {
+      if (!isConversionAttempt) {
+        banner.classList.remove('show', 'touchdown', 'pat', 'twopoint', 'interception', 'timeout', 'penalty', 'sticky');
+        if (kick) kick.classList.remove('show');
+      }
+      return;
+    }
+
+    const key = `${play.playNum || ''}|${play.qtr || ''}|${play.clock || ''}|${result}|${play.description || ''}`;
+    if (key === lastCelebratedPlayKey && !isTouchdown) return;
+    lastCelebratedPlayKey = key;
+
+    const isReturnTouchdown = result === 'RETURN_TD' && (playType === 'KICKOFF' || playType === 'PUNT');
+    const recordedSide = play.teamSide === 'away' ? 'away' : 'home';
+    const penaltySide = isPenalty ? (sideForTeam(play.penaltyTeam, setup) || recordedSide) : null;
+    const side = penaltySide || ((isReturnTouchdown || isInterception)
+      ? (recordedSide === 'away' ? 'home' : 'away')
+      : recordedSide);
+    const primary = safeHex(side === 'away' ? setup.AWAY_PRIMARY_COLOR : setup.HOME_PRIMARY_COLOR, '#ffc72c');
+    const secondary = safeHex(side === 'away' ? setup.AWAY_SECONDARY_COLOR : setup.HOME_SECONDARY_COLOR, '#ffffff');
+    const logoUrl = celebrationLogoSource(side, setup);
+    const scoringTeamLabel = side === 'away'
+      ? (setup.AWAY_TEAM_NAME || setup.AWAY_ABBR || play.teamName || play.teamAbbr || 'Scoring play')
+      : (setup.HOME_TEAM_NAME || setup.HOME_ABBR || play.teamName || play.teamAbbr || 'Scoring play');
+
+    banner.style.setProperty('--cele-primary', primary);
+    banner.style.setProperty('--cele-secondary', secondary);
+    banner.classList.remove('show', 'touchdown', 'pat', 'twopoint', 'interception', 'timeout', 'penalty', 'sticky');
+    if (kick) kick.classList.remove('show');
+
+    if (isTouchdown) {
+      banner.classList.add('touchdown', 'sticky');
+      word.textContent = 'Touchdown';
+      sub.textContent = scoringTeamLabel;
+    } else if (isPatGood) {
+      banner.classList.add('pat');
+      word.textContent = 'Extra Point Good';
+      sub.textContent = scoringTeamLabel;
+    } else if (isPatBad) {
+      banner.classList.add('pat');
+      word.textContent = 'Extra Point No Good';
+      sub.textContent = scoringTeamLabel;
+    } else if (isTwoPointGood) {
+      banner.classList.add('twopoint');
+      word.textContent = '2-Point Conversion';
+      sub.textContent = scoringTeamLabel;
+    } else if (isTwoPointBad) {
+      banner.classList.add('twopoint');
+      word.textContent = '2-Point Try No Good';
+      sub.textContent = scoringTeamLabel;
+    } else if (isFgGood) {
+      banner.classList.add('pat');
+      word.textContent = 'Field Goal Good';
+      sub.textContent = scoringTeamLabel;
+    } else if (isFgBad) {
+      banner.classList.add('pat');
+      word.textContent = 'Field Goal No Good';
+      sub.textContent = scoringTeamLabel;
+    } else if (isInterception) {
+      banner.classList.add('interception');
+      word.textContent = 'Interception';
+      sub.textContent = `${scoringTeamLabel} Ball`;
+    } else if (isTimeout) {
+      banner.classList.add('timeout');
+      word.textContent = 'Timeout';
+      sub.textContent = `${scoringTeamLabel}`;
+    } else if (isPenalty) {
+      banner.classList.add('penalty');
+      word.textContent = 'Penalty';
+      const penType = play.penaltyType || 'Penalty';
+      const penTeam = play.penaltyTeam || scoringTeamLabel;
+      const yards = Math.abs(num(play.penYards, 0));
+      sub.textContent = result === 'PENALTY_DECLINED'
+        ? `${penType} on ${penTeam} — declined`
+        : `${penType} on ${penTeam}${yards ? ` — ${yards} yards` : ''}`;
+    }
+
+    [leftLogo, rightLogo].forEach(img => {
+      img.classList.remove('visible');
+      img.removeAttribute('src');
+      if (logoUrl) {
+        img.src = logoUrl;
+        img.classList.add('visible');
+      }
+    });
+
+    void banner.getBoundingClientRect();
+    banner.classList.add('show');
+
+    if (celebrationTimer) clearTimeout(celebrationTimer);
+    if (!isTouchdown) {
+      celebrationTimer = setTimeout(() => {
+        banner.classList.remove('show', 'pat', 'twopoint', 'interception', 'timeout', 'penalty');
+      }, 4700);
+    }
+  }
+
+  function renderLastPlay(plays) {
+    const p = plays && plays[0];
+    const meta = document.getElementById('last-play-meta');
+    const text = document.getElementById('last-play-text');
+    if (!p) {
+      meta.textContent = 'No plays submitted yet.';
+      text.textContent = 'Game starts soon.';
+      return;
+    }
+    meta.innerHTML = `${teamLogoMark(p.teamSide, latestData?.setup || {}, p.teamAbbr || '—')}<span>${esc(formatQuarter(p.qtr))}</span><span>${esc(p.clock || '')}</span><span>${esc(p.situation || '')}</span>`;
+    text.textContent = p.description || '—';
+  }
+
+  function renderPlayList(id, plays, max) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const rows = (plays || []).slice(0, max);
+    if (!rows.length) {
+      el.innerHTML = '<div class="empty">No plays logged yet.</div>';
+      return;
+    }
+    el.innerHTML = rows.map(p => {
+      const cls = p.isScoring ? ' scoring' : p.isTurnover ? ' turnover' : '';
+      return `<div class="feed-item${cls}">
+        <div class="feed-meta">${teamLogoMark(p.teamSide, latestData?.setup || {}, p.teamAbbr || '—')}<span>${esc(formatQuarter(p.qtr))}</span><span>${esc(p.clock || '')}</span><span>${esc(p.situation || '')}</span></div>
+        <div class="feed-text">${esc(p.description || '')}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderDrivePlayByPlay(plays, setup) {
+    const el = document.getElementById('drive-play-list');
+    if (!el) return;
+    const groups = buildDriveGroups(plays || []);
+    if (!groups.length) {
+      el.innerHTML = '<div class="empty">No drives logged yet.</div>';
+      return;
+    }
+
+    // Latest drive first in the UI
+    el.innerHTML = groups.slice().reverse().map((group, idx) => {
+      const side = group.side || inferSideFromTeam(group.team, setup);
+      const abbr = side === 'home' ? (setup.HOME_ABBR || group.team || 'HOME') : (setup.AWAY_ABBR || group.team || 'AWAY');
+      const name = side === 'home' ? (setup.HOME_TEAM_NAME || group.team || 'Home') : (setup.AWAY_TEAM_NAME || group.team || 'Away');
+      const label = group.kind === 'event' ? group.result : `${name} Drive`;
+      const summary = group.kind === 'event'
+        ? group.result
+        : group.result || 'Drive in Progress';
+      const playCount = group.plays.length;
+      const first = group.plays[0] || {};
+      const last = group.plays[group.plays.length - 1] || {};
+      const clockText = first.clock ? `${formatQuarter(first.qtr)} ${first.clock}` : formatQuarter(first.qtr);
+      const metaBits = [];
+      if (group.kind !== 'event') metaBits.push(`${playCount} play${playCount === 1 ? '' : 's'}`);
+      if (first.situation) metaBits.push(`Started: ${first.situation}`);
+      if (last.situation && last !== first) metaBits.push(`Last: ${last.situation}`);
+
+      return `<details class="drive-card ${group.kind === 'event' ? 'event-drive' : ''}" ${idx === 0 ? 'open' : ''}>
+        <summary>
+          <div class="drive-summary-left">
+            ${teamLogoMark(side, setup, abbr)}
+            <div class="drive-summary-copy">
+              <div class="drive-summary-title"><span>${esc(label)}</span><span class="drive-result">${esc(summary)}</span></div>
+              <div class="drive-summary-meta">${esc(clockText || '')}${metaBits.length ? ' • ' + esc(metaBits.join(' • ')) : ''}</div>
+            </div>
+          </div>
+          <div class="drive-chevron">⌄</div>
+        </summary>
+        <div class="drive-plays">
+          ${group.plays.slice().reverse().map(p => renderDrivePlayRow(p, setup)).join('')}
+        </div>
+      </details>`;
+    }).join('');
+  }
+
+  function renderDrivePlayRow(p, setup) {
+    const cls = p.isScoring ? ' scoring' : p.isTurnover ? ' turnover' : '';
+    return `<div class="feed-item${cls}">
+      <div class="feed-meta">${teamLogoMark(p.teamSide, setup, p.teamAbbr || '—')}<span>${esc(formatQuarter(p.qtr))}</span><span>${esc(p.clock || '')}</span><span>${esc(p.situation || '')}</span></div>
+      <div class="feed-text">${esc(p.description || '')}</div>
+    </div>`;
+  }
+
+  function buildDriveGroups(plays) {
+    const chronological = (plays || []).slice().reverse();
+    const groups = [];
+    let current = null;
+
+    const terminalResults = new Set(['TD','FG','FG_MISS','INT','FUMBLE_LOST','SAFETY']);
+    const conversionTypes = new Set(['PAT','PAT_2PT']);
+    const fieldGoalOrPuntTypes = new Set(['PUNT','FG']);
+    const standaloneEventTypes = new Set(['KICKOFF']);
+
+    chronological.forEach(play => {
+      const type = String(play.playType || '').toUpperCase();
+      const result = String(play.result || '').toUpperCase();
+      const team = String(play.team || play.teamName || '').trim();
+      const driveId = String(play.driveId || '').trim();
+
+      // Attach conversions to a just-finished touchdown drive when possible.
+      if (conversionTypes.has(type)) {
+        const lastGroup = groups[groups.length - 1];
+        if (lastGroup && lastGroup.kind === 'drive' && /touchdown/i.test(lastGroup.result || '')) {
+          lastGroup.plays.push(play);
+          return;
+        }
+        groups.push({ kind: 'event', team, side: play.teamSide, result: type === 'PAT_2PT' ? 'Two-Point Try' : 'PAT', plays: [play] });
+        return;
+      }
+
+      // Kickoffs are useful to keep, but they are not offensive drives.
+      if (standaloneEventTypes.has(type)) {
+        groups.push({ kind: 'event', team, side: play.teamSide, result: 'Kickoff', plays: [play] });
+        current = null;
+        return;
+      }
+
+      // Newer Play Logs include DRIVE_ID, which makes grouping permanent and reliable.
+      // Older rows fall back to the previous inferred grouping rules.
+      const needsNewDrive = driveId
+        ? (!current || current.kind !== 'drive' || String(current.driveId || '') !== driveId)
+        : (!current || current.closed || (team && current.team && team !== current.team));
+
+      if (needsNewDrive) {
+        current = { kind: 'drive', driveId, team, side: play.teamSide, plays: [], result: '', closed: false };
+        groups.push(current);
+      }
+
+      current.plays.push(play);
+
+      if (terminalResults.has(result)) {
+        current.result = driveResultLabel(type, result, play);
+        current.closed = true;
+      } else if (fieldGoalOrPuntTypes.has(type)) {
+        current.result = driveResultLabel(type, result, play);
+        current.closed = true;
+      } else {
+        current.result = 'Drive in Progress';
+      }
+    });
+
+    return groups.map(group => {
+      if (group.kind === 'drive' && (!group.result || group.result === 'Drive in Progress') && group !== groups[groups.length - 1]) {
+        group.result = 'Drive Ended';
+      }
+      return group;
+    });
+  }
+
+  function driveResultLabel(type, result, play) {
+    if (result === 'TD') return 'Touchdown';
+    if (result === 'FG') return 'Field Goal';
+    if (result === 'FG_MISS') return 'Missed Field Goal';
+    if (result === 'INT') return 'Interception';
+    if (result === 'FUMBLE_LOST') return 'Fumble Lost';
+    if (result === 'SAFETY') return 'Safety';
+    if (type === 'PUNT') return 'Punt';
+    if (type === 'FG') return /MISS|BLOCK/i.test(result) ? 'Missed Field Goal' : 'Field Goal Try';
+    return 'Drive Ended';
+  }
+
+  function inferSideFromTeam(team, setup) {
+    const raw = String(team || '').trim();
+    const homeVals = [setup.HOME_TEAM_NAME, setup.HOME_ABBR].map(v => String(v || '').trim()).filter(Boolean);
+    const awayVals = [setup.AWAY_TEAM_NAME, setup.AWAY_ABBR].map(v => String(v || '').trim()).filter(Boolean);
+    if (homeVals.includes(raw)) return 'home';
+    if (awayVals.includes(raw)) return 'away';
+    return 'home';
+  }
+
+
+  function renderScoring(scoring, setup) {
+    const el = document.getElementById('scoring-list');
+    const rows = (scoring || []).slice().reverse();
+    if (!rows.length) {
+      el.innerHTML = '<div class="empty">No scoring plays yet.</div>';
+      return;
+    }
+    el.innerHTML = rows.map(s => {
+      const side = s.teamSide === 'away' ? 'away' : 'home';
+      return `
+        <div class="scoring-card ${side}">
+          <div>${teamLogoMark(side, setup, s.teamAbbr || s.team || '—')}</div>
+          <div>
+            <div class="scoring-meta">${esc(formatQuarter(s.qtr))} · ${esc(s.clock || '')}</div>
+            <div class="scoring-desc">${esc(s.desc || s.type || '')}</div>
+          </div>
+          <div class="scoring-scoreline">${esc(s.homeScore)}–${esc(s.awayScore)}</div>
+        </div>`;
+    }).join('');
+  }
+
+
+  function renderQuarterScores(scores, setup) {
+    const el = document.getElementById('quarter-score-content');
+    if (!el) return;
+
+    const quarters = Array.isArray(scores.quarters) && scores.quarters.length
+      ? scores.quarters
+      : ['1','2','3','4'];
+
+    const home = scores.home || { byQuarter: {}, total: 0 };
+    const away = scores.away || { byQuarter: {}, total: 0 };
+    const quarterCount = quarters.length + 1;
+
+    const head = `
+      <div class="quarter-score-head">Team</div>
+      ${quarters.map(q => `<div class="quarter-score-head">${esc(q === 'OT' ? 'OT' : 'Q' + q)}</div>`).join('')}
+      <div class="quarter-score-head">T</div>`;
+
+    const row = (side, team, fallbackAbbr) => `
+      <div class="quarter-score-team ${side}">
+        ${teamLogoMark(side, setup, team.abbr || fallbackAbbr)}
+        <span>${esc(team.abbr || fallbackAbbr)}</span>
+      </div>
+      ${quarters.map(q => `<div class="quarter-score-cell">${esc((team.byQuarter || {})[q] || 0)}</div>`).join('')}
+      <div class="quarter-score-cell total">${esc(team.total || 0)}</div>`;
+
+    el.innerHTML = `
+      <div class="quarter-score-wrap" style="--quarter-count:${quarterCount}">
+        <div class="quarter-score-grid">
+          ${head}
+          ${row('home', home, setup.HOME_ABBR || 'HOME')}
+          ${row('away', away, setup.AWAY_ABBR || 'AWAY')}
+        </div>
+      </div>`;
+  }
+
+  function renderLeaders(leaders, setup) {
+    const el = document.getElementById('leader-grid');
+    const homeRows = leaders.home || [];
+    const awayRows = leaders.away || [];
+    el.innerHTML = [
+      leaderTeamBlock('home', setup.HOME_TEAM_NAME || 'Home', setup.HOME_ABBR || 'HOME', homeRows, setup),
+      leaderTeamBlock('away', setup.AWAY_TEAM_NAME || 'Away', setup.AWAY_ABBR || 'AWAY', awayRows, setup)
+    ].join('');
+  }
+
+  function leaderTeamBlock(side, name, abbr, rows, setup) {
+    const safeSide = side === 'away' ? 'away' : 'home';
+    return `<div class="leader-team-panel ${safeSide}">
+      <div class="leader-team-title">${teamLogoMark(safeSide, setup, abbr)} <span>${esc(name)}</span></div>
+      <div class="leader-stack">
+        ${rows.length ? rows.map(r => `<div class="leader-row"><div><div class="leader-cat">${esc(r.category)}</div><div class="leader-name">${esc(r.name)}</div></div><div class="leader-value">${esc(r.value)}</div></div>`).join('') : '<div class="empty">No qualifying stats yet.</div>'}
+      </div>
+    </div>`;
+  }
+
+  function chip(text) {
+    return `<span class="team-chip">${esc(text)}</span>`;
+  }
+
+  function teamLogoMark(side, setup, abbr) {
+    const safeSide = side === 'away' ? 'away' : 'home';
+    const logo = safeSide === 'home' ? setup.HOME_LOGO_URL : setup.AWAY_LOGO_URL;
+    const fallback = String(abbr || (safeSide === 'home' ? 'HOME' : 'AWAY')).slice(0, 4);
+    if (logo) {
+      return `<span class="mini-team-logo-wrap logo-${safeSide}"><img class="mini-team-logo" src="${escAttr(logo)}" alt="${escAttr(fallback)} logo"></span>`;
+    }
+    return `<span class="mini-team-logo-wrap logo-${safeSide}"><span class="mini-team-logo-fallback logo-${safeSide}">${esc(fallback)}</span></span>`;
+  }
+
+  function escAttr(value) {
+    return esc(value).replace(/'/g, '&#39;');
+  }
+
+  function renderBoxScore(box, setup) {
+    const el = document.getElementById('boxscore-content');
+    el.classList.add('player-stats-page');
+    el.innerHTML = [
+      renderTeamBox('home', setup.HOME_TEAM_NAME || 'Home', setup.HOME_ABBR || 'HOME', box.home || {}, setup),
+      renderTeamBox('away', setup.AWAY_TEAM_NAME || 'Away', setup.AWAY_ABBR || 'AWAY', box.away || {}, setup)
+    ].join('');
+  }
+
+  function renderTeamBox(side, name, abbr, team, setup) {
+    return `<section class="player-team-panel ${side}">
+      <div class="player-team-header">
+        <div class="player-team-identity">
+          ${teamLogoMark(side, setup, abbr)}
+          <div>
+            <div class="player-team-name">${esc(name)}</div>
+            <div class="player-team-label">Player Statistics</div>
+          </div>
+        </div>
+        <div class="player-team-accent">${esc(abbr)} Box Score</div>
+      </div>
+      <div class="player-stat-grid">
+        ${statTableCard('Passing', team.passing || [], ['Player','C/A','Yds','TD','INT','Long'], row => [playerCell(row), `${row.comp}/${row.att}`, row.yds, row.td, row.int, row.long])}
+        ${statTableCard('Rushing', team.rushing || [], ['Player','Car','Yds','Avg','TD','Long'], row => [playerCell(row), row.car, row.yds, row.avg, row.td, row.long])}
+        ${statTableCard('Receiving', team.receiving || [], ['Player','Rec','Yds','Avg','TD','Tgts'], row => [playerCell(row), row.rec, row.yds, row.avg, row.td, row.tgts])}
+        ${statTableCard('Defense', team.defense || [], ['Player','Tot','Solo','Asst','TFL','Sacks','INT'], row => [playerCell(row), row.tot, row.solo, row.asst, row.tfl, row.sacks, row.int])}
+        ${statTableCard('Special Teams', team.specialTeams || [], ['Player','FG','XP','Punts','Punt Yds','KR Yds','PR Yds'], row => [playerCell(row), `${row.fgm}/${row.fga}`, `${row.xpm}/${row.xpa}`, row.punts, row.puntYds, row.krYds, row.prYds])}
+      </div>
+    </section>`;
+  }
+
+  function playerCell(row) {
+    return `${row.num ? '#' + row.num + ' ' : ''}${row.name || ''}`.trim();
+  }
+
+  function statTableCard(title, rows, headers, mapFn) {
+    if (!rows.length) return `<div class="subcard"><div class="subcard-hd">${esc(title)}</div><div class="card-body"><div class="empty">No recorded ${esc(title.toLowerCase())} stats yet.</div></div></div>`;
+    return `<div class="subcard">
+      <div class="subcard-hd">${esc(title)}</div>
+      <div class="table-wrap"><table><thead><tr>${headers.map((h, i) => `<th class="${i ? 'num' : ''}">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => {
+        const vals = mapFn(row);
+        return `<tr>${vals.map((v, i) => `<td class="${i ? 'num' : ''}">${esc(v)}</td>`).join('')}</tr>`;
+      }).join('')}</tbody></table></div>
+    </div>`;
+  }
+
+  function renderTeamStats(stats, setup) {
+    const el = document.getElementById('team-stats-content');
+    const h = stats.home || {};
+    const a = stats.away || {};
+    const homeName = setup.HOME_TEAM_NAME || setup.HOME_ABBR || 'Home';
+    const awayName = setup.AWAY_TEAM_NAME || setup.AWAY_ABBR || 'Away';
+
+    const homeLogo = teamLogoMark('home', setup, setup.HOME_ABBR || 'HOME');
+    const awayLogo = teamLogoMark('away', setup, setup.AWAY_ABBR || 'AWAY');
+
+    const pct = (left, right, side) => {
+      const l = Math.max(0, Number(left || 0));
+      const r = Math.max(0, Number(right || 0));
+      const total = l + r;
+      if (!total) return 50;
+      const share = Math.round(((side === 'home' ? l : r) / total) * 100);
+      return Math.max(6, Math.min(94, share));
+    };
+
+    const row = (label, homeValue, awayValue, homeCompare, awayCompare) => {
+      const hv = homeValue ?? '—';
+      const av = awayValue ?? '—';
+      const hc = Number((homeCompare ?? parseFloat(String(hv).replace(/[^\d.-]/g,''))) || 0);
+      const ac = Number((awayCompare ?? parseFloat(String(av).replace(/[^\d.-]/g,''))) || 0);
+      const homeLead = hc > ac ? 'lead-home' : '';
+      const awayLead = ac > hc ? 'lead-away' : '';
+      const homeW = pct(hc, ac, 'home');
+      const awayW = pct(hc, ac, 'away');
+      return `
+        <div class="comparison-row">
+          <div class="comparison-value ${homeLead}">${esc(hv)}</div>
+          <div class="comparison-mid">
+            <div class="comparison-label">${esc(label)}</div>
+            <div class="comparison-track">
+              <span class="comparison-home-fill" style="width:${homeW}%"></span>
+              <span class="comparison-away-fill" style="width:${awayW}%"></span>
+            </div>
+          </div>
+          <div class="comparison-value ${awayLead}">${esc(av)}</div>
+        </div>`;
+    };
+
+    const offenseRows = [
+      row('Total Yards', h.totalYds || 0, a.totalYds || 0),
+      row('Yards / Play', Number(h.yardsPerPlay || 0).toFixed(1), Number(a.yardsPerPlay || 0).toFixed(1), h.yardsPerPlay || 0, a.yardsPerPlay || 0),
+      row('First Downs', h.firstDowns || 0, a.firstDowns || 0),
+      row('Passing', `${h.passComp || 0}/${h.passAtt || 0}, ${h.passYds || 0} yds`, `${a.passComp || 0}/${a.passAtt || 0}, ${a.passYds || 0} yds`, h.passYds || 0, a.passYds || 0),
+      row('Completion %', `${h.completionPct || 0}%`, `${a.completionPct || 0}%`, h.completionPct || 0, a.completionPct || 0),
+      row('Rushing', `${h.rushAtt || 0} att, ${h.rushYds || 0} yds`, `${a.rushAtt || 0} att, ${a.rushYds || 0} yds`, h.rushYds || 0, a.rushYds || 0),
+      row('Rush Avg', Number(h.rushAvg || 0).toFixed(1), Number(a.rushAvg || 0).toFixed(1), h.rushAvg || 0, a.rushAvg || 0),
+    ];
+
+    const situationalRows = [
+      row('3rd Down', `${h.thirdConv || 0}/${h.thirdAtt || 0} (${h.thirdPct || 0}%)`, `${a.thirdConv || 0}/${a.thirdAtt || 0} (${a.thirdPct || 0}%)`, h.thirdPct || 0, a.thirdPct || 0),
+      row('4th Down', `${h.fourthConv || 0}/${h.fourthAtt || 0} (${h.fourthPct || 0}%)`, `${a.fourthConv || 0}/${a.fourthAtt || 0} (${a.fourthPct || 0}%)`, h.fourthPct || 0, a.fourthPct || 0),
+      row('Turnovers', h.turnovers || 0, a.turnovers || 0, a.turnovers || 0, h.turnovers || 0),
+      row('Sacks Allowed', h.sacksAllowed || 0, a.sacksAllowed || 0, a.sacksAllowed || 0, h.sacksAllowed || 0),
+      row('Punts', h.punts || 0, a.punts || 0, a.punts || 0, h.punts || 0),
+      row('Explosive Plays', h.explosivePlays || 0, a.explosivePlays || 0),
+    ];
+
+    el.innerHTML = `
+      <div class="team-stats-dashboard">
+        <div class="team-stats-hero">
+          <div class="team-hero-card home">
+            <div class="team-hero-top">
+              ${homeLogo}
+              <div>
+                <div class="team-hero-name">${esc(homeName)}</div>
+                <div class="team-hero-sub">Live Team Snapshot</div>
+              </div>
+            </div>
+            <div class="team-hero-metrics">
+              <div class="hero-metric"><span class="hero-metric-label">Yards</span><span class="hero-metric-value">${esc(h.totalYds || 0)}</span></div>
+              <div class="hero-metric"><span class="hero-metric-label">Plays</span><span class="hero-metric-value">${esc(h.plays || 0)}</span></div>
+            </div>
+          </div>
+
+          <div class="team-hero-divider">VS</div>
+
+          <div class="team-hero-card away">
+            <div class="team-hero-top">
+              ${awayLogo}
+              <div>
+                <div class="team-hero-name">${esc(awayName)}</div>
+                <div class="team-hero-sub">Live Team Snapshot</div>
+              </div>
+            </div>
+            <div class="team-hero-metrics">
+              <div class="hero-metric"><span class="hero-metric-label">Yards</span><span class="hero-metric-value">${esc(a.totalYds || 0)}</span></div>
+              <div class="hero-metric"><span class="hero-metric-label">Plays</span><span class="hero-metric-value">${esc(a.plays || 0)}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="team-stats-section">
+          <div class="team-stats-section-hd">Offensive Production</div>
+          <div class="comparison-list">${offenseRows.join('')}</div>
+        </div>
+
+        <div class="team-stats-section">
+          <div class="team-stats-section-hd">Situational Football</div>
+          <div class="comparison-list">${situationalRows.join('')}</div>
+        </div>
+      </div>`;
+  }
+
+  function bindTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+      });
+    });
+  }
+
+  // Public read-only Apps Script data endpoint.
+  // If the Apps Script deployment URL changes, update only this constant.
+  const GAMECAST_DATA_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyepMFMgO4_tq3zqeeXjdVDh34cj7CQwhsYJaEWZQf38gT2bI1vq9jaJCdwOmQO5QWXHg/exec';
+
+  let publicRequestInFlight = false;
+  let publicRequestSeq = 0;
+
+  function fetchData() {
+    if (publicRequestInFlight) return;
+    publicRequestInFlight = true;
+
+    const callbackName = '__morrisGameCast_' + Date.now() + '_' + (++publicRequestSeq);
+    const script = document.createElement('script');
+    const separator = GAMECAST_DATA_ENDPOINT.includes('?') ? '&' : '?';
+    let settled = false;
+
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      publicRequestInFlight = false;
+      clearTimeout(timeoutId);
+      try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+
+    window[callbackName] = payload => {
+      const response = payload || {};
+      if (!response.ok || !response.data) {
+        const message = response.error || 'The live GameCast feed is temporarily unavailable.';
+        cleanup();
+        hideLoading();
+        showError(message);
+        console.error('GameCast public-feed error:', message);
+        return;
+      }
+
+      cleanup();
+      render(response.data);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      hideLoading();
+      showError(
+        'Could not reach the live GameCast feed. If this happens on every device, ' +
+        'check that the Apps Script data deployment allows public/anonymous access.'
+      );
+      console.error('GameCast public-feed request failed.');
+    };
+
+    script.src =
+      GAMECAST_DATA_ENDPOINT +
+      separator +
+      'view=data&callback=' + encodeURIComponent(callbackName) +
+      '&_=' + Date.now();
+    script.async = true;
+
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      hideLoading();
+      showError('The live GameCast feed did not respond. Please refresh and try again.');
+      console.error('GameCast public-feed request timed out.');
+    }, 12000);
+
+    document.head.appendChild(script);
+  }
+
+  bindTabs();
+  fetchData();
+  setInterval(fetchData, 15000);
+</script>
+</body>
+</html>
