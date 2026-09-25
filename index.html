@@ -2907,8 +2907,9 @@
     const homeAbbr = setup.HOME_ABBR || 'HOME';
     const awayAbbr = setup.AWAY_ABBR || 'AWAY';
     const possSide = sideForTeam(state.POSSESSION, setup);
-    const optimisticState = expectedPostPlayVisualState(state, setup, possSide, data.recentPlays || []) || state;
-    const displayState = specialNextActionVisualState(optimisticState, setup);
+    // V3 reliability: never predict the official ball spot/down-distance on the public field.
+    // The backend Game State is authoritative; animations may illustrate a play but may not move the official marker.
+    const displayState = state;
 
     applyBranding(setup, homeAbbr, awayAbbr);
 
