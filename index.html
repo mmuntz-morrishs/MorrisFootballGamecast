@@ -2680,6 +2680,7 @@
   }
 
   function formatClockDisplay(state) {
+    if (String(state.CLOCK_MODE || 'LIVE').toUpperCase() !== 'TIME') return 'LIVE';
     const running = String(state.CLOCK_RUNNING).toLowerCase() === 'true' || state.CLOCK_RUNNING === true;
     const baseSeconds = num(state.CLOCK_SECONDS, parseClockToSeconds(state.CLOCK));
     let sec = baseSeconds;
@@ -2712,7 +2713,8 @@
     const clockEl = document.getElementById('clock');
     const state = latestData.state || {};
     clockEl.textContent = formatClockDisplay(state);
-    const running = String(state.CLOCK_RUNNING).toLowerCase() === 'true' || state.CLOCK_RUNNING === true;
+    const clockMode = String(state.CLOCK_MODE || 'LIVE').toUpperCase();
+    const running = clockMode === 'TIME' && (String(state.CLOCK_RUNNING).toLowerCase() === 'true' || state.CLOCK_RUNNING === true);
     clockEl.classList.toggle('running', running);
     refreshUpdatedText();
     renderPeriodStateBanner(state);
@@ -3027,6 +3029,11 @@
     const title = document.getElementById('period-state-title');
     const sub = document.getElementById('period-state-sub');
     if (!banner || !title || !sub) return;
+
+    if (String(state.CLOCK_MODE || 'LIVE').toUpperCase() !== 'TIME') {
+      banner.style.display = 'none';
+      return;
+    }
 
     const running = String(state.CLOCK_RUNNING).toLowerCase() === 'true' || state.CLOCK_RUNNING === true;
     const seconds = num(state.CLOCK_SECONDS, parseClockToSeconds(state.CLOCK));
